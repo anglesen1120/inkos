@@ -14,3 +14,11 @@ Apply this method when creating or editing an interactive film/game-script deliv
 - Maintain character voice and known state across nodes. A later node cannot forget facts, injuries, items, relationships, or prior choices that still apply.
 - Storyboards and image prompts must preserve character, location, prop, era, lighting, and visual-contract continuity. Do not invent a visual style the user did not choose.
 - Each ending should express the accumulated path, not a last-minute label attached to the same outcome.
+
+## Hướng dẫn đầu ra tiếng Việt
+
+Khi ngôn ngữ đầu ra hoặc ngôn ngữ đích là `vi` hoặc `vi-VN`:
+
+- Viết lời thoại tiếng Việt tự nhiên, dễ nói; chọn cách xưng hô theo tuổi tác, địa vị, mức độ thân mật và quan hệ đã hình thành.
+- Giữ nhất quán giọng nhân vật, cách xưng hô và tên riêng giữa mọi nhánh theo trạng thái tích lũy; khi lựa chọn làm quan hệ thay đổi, các nút sau phải phản ánh thay đổi đó.
+- Tuyệt đối không dịch tên biến, cờ, ID nút, ID kết thúc, điều kiện, đích đến hoặc khóa schema; giữ nguyên chính tả và kiểu chữ của mọi định danh máy.

@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { EPub } from "epub-gen-memory";
-
+import { normalizeWritingLanguage, writingLanguageToEpubLocale } from "../utils/language.js";
 export interface ExportStateLike {
   readonly bookDir: (bookId: string) => string;
   readonly loadBookConfig: (bookId: string) => Promise<{ readonly title: string; readonly language?: string }>;
@@ -93,8 +93,9 @@ export async function buildExportArtifact(
       const { title, html } = markdownToSimpleHtml(markdown);
       epubChapters.push({ title, content: html });
     }
+    const language = normalizeWritingLanguage(book.language) ?? "zh";
     const epubInstance = new EPub(
-      { title: book.title, lang: book.language === "en" ? "en" : "zh-CN" },
+      { title: book.title, lang: writingLanguageToEpubLocale(language) },
       epubChapters,
     );
     return {

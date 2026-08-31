@@ -4,6 +4,7 @@ import { appendInteractionEvent } from "./session.js";
 import type { InteractionRequest } from "./intents.js";
 import type { InteractionRuntimeTools } from "./runtime.js";
 import { runInteractionRequest } from "./runtime.js";
+import { normalizeWritingLanguage } from "../utils/language.js";
 import {
   loadProjectSession,
   persistProjectSession,
@@ -70,23 +71,17 @@ export async function processProjectInteractionRequest(params: {
 
 function attachRequestLanguage(
   request: InteractionRequest,
-  language: "zh" | "en" | undefined,
+  language: "zh" | "en" | "vi" | undefined,
 ): InteractionRequest {
-  if (request.language || !language) {
-    return request;
-  }
-
-  return {
-    ...request,
-    language,
-  };
+  if (request.language || !language) return request;
+  return { ...request, language };
 }
 
-async function detectProjectInteractionLanguage(projectRoot: string): Promise<"zh" | "en" | undefined> {
+async function detectProjectInteractionLanguage(projectRoot: string): Promise<"zh" | "en" | "vi" | undefined> {
   try {
     const raw = await readFile(join(projectRoot, "inkos.json"), "utf-8");
-    const parsed = JSON.parse(raw) as { language?: string };
-    return parsed.language === "en" ? "en" : parsed.language === "zh" ? "zh" : undefined;
+    const parsed = JSON.parse(raw) as { language?: unknown };
+    return normalizeWritingLanguage(parsed.language);
   } catch {
     return undefined;
   }

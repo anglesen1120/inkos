@@ -186,6 +186,37 @@ describe("tui agent session bridge", () => {
     expect(persisted.activeBookId).toBeUndefined();
   });
 
+
+  it("passes Vietnamese project language through TUI slash routes", async () => {
+    loadConfigMock.mockResolvedValueOnce({
+      llm: {
+        provider: "openai",
+        model: "gpt-5.4",
+        baseUrl: "https://right.codes/codex/v1",
+        apiFormat: "chat",
+        stream: false,
+      },
+      language: "vi",
+    });
+    runAgentSessionMock.mockResolvedValue({
+      responseText: "Đã chuẩn bị viết chương tiếp theo.",
+      messages: [{ role: "assistant", content: "Đã chuẩn bị viết chương tiếp theo." }],
+    });
+    const { processTuiAgentInput } = await import("../tui/agent-input.js");
+    const session = { ...createProjectSession(projectRoot), activeBookId: "ben-suong" };
+
+    await processTuiAgentInput({
+      projectRoot,
+      input: "/write",
+      session,
+    });
+
+    expect(runAgentSessionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ language: "vi", requestedIntent: "write_next" }),
+      "Viết chương tiếp theo",
+      [],
+    );
+  });
   it("uses explicit slash entries to select book, short, and play surfaces without parsing free text", async () => {
     runAgentSessionMock.mockResolvedValue({
       responseText: "先讨论并确认方向。",
@@ -298,6 +329,42 @@ describe("tui agent session bridge", () => {
       expect.any(Array),
     );
     expect(confirmed.session.pendingProposedAction).toBeUndefined();
+  });
+
+  it("formats pending-action chrome in Vietnamese", async () => {
+    loadConfigMock.mockResolvedValueOnce({
+      llm: {
+        provider: "openai",
+        model: "gpt-5.4",
+        baseUrl: "https://right.codes/codex/v1",
+        apiFormat: "chat",
+        stream: false,
+      },
+      language: "vi",
+    });
+    runAgentSessionMock.mockResolvedValueOnce({
+      responseText: "",
+      messages: [{
+        role: "toolResult",
+        details: {
+          kind: "proposed_action",
+          action: "short_run",
+          targetSessionKind: "short",
+          instruction: "Viết truyện ngắn về bến cảng trong sương.",
+        },
+      }],
+    });
+    const { processTuiAgentInput } = await import("../tui/agent-input.js");
+
+    const proposed = await processTuiAgentInput({
+      projectRoot,
+      input: "/short bến cảng trong sương",
+      session: createProjectSession(projectRoot),
+    });
+
+    expect(proposed.responseText).toContain("Xác nhận hành động");
+    expect(proposed.responseText).toContain("Nhập /confirm để tiếp tục, hoặc /cancel để hủy.");
+    expect(proposed.responseText).not.toContain("确认执行");
   });
 
   it("uses the per-session model override when resolving the model client", async () => {

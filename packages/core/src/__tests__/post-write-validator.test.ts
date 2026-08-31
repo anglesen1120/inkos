@@ -113,6 +113,35 @@ describe("validatePostWrite", () => {
     expect(findRule(result, "叙事人称")).toBeUndefined();
   });
 
+  it("does not flag Vietnamese first-person pronouns and inner states as POV drift", () => {
+    const firstPersonRules = BookRulesSchema.parse({
+      narrativePerson: "first",
+      protagonist: { name: "Minh" },
+    });
+    const content = [
+      "Tôi khép cửa phòng trọ rồi đứng im nghe mưa rơi trên mái tôn.",
+      "Trong lòng mình vẫn lo, nhưng tôi biết phải tìm Nam trước khi trời sáng.",
+      "Tôi tự nhủ rằng mình đã nhớ đúng con hẻm anh ấy chỉ hôm qua.",
+    ].join("\n\n");
+
+    const result = validatePostWrite(content, baseProfile, firstPersonRules, "vi");
+
+    expect(findRule(result, "叙事人称")).toBeUndefined();
+  });
+
+  it("flags Vietnamese third-person inner-state narration in a first-person book", () => {
+    const firstPersonRules = BookRulesSchema.parse({
+      narrativePerson: "first",
+      protagonist: { name: "Minh" },
+    });
+    const content = "Anh ấy cảm thấy lạnh khi bước vào con hẻm tối, nhưng trong lòng vẫn nghĩ đến chiếc chìa khóa đã mất.";
+
+    const result = validatePostWrite(content, baseProfile, firstPersonRules, "vi");
+
+    expect(findRule(result, "叙事人称")).toBeDefined();
+    expect(findRule(result, "叙事人称")?.severity).toBe("error");
+  });
+
   it("does not check narrative person when the user never set one", () => {
     const noPersonRules = BookRulesSchema.parse({ protagonist: { name: "陈烬" } });
     const para = "陈烬走进昏暗的档案室，他扫了一眼四周的铁架。陈烬蹲下身，翻出一沓文件，他的指尖发抖。";
@@ -141,7 +170,7 @@ describe("validatePostWrite", () => {
       content: string,
       genreProfile: GenreProfile,
       bookRules: null,
-      languageOverride?: "zh" | "en",
+      languageOverride?: "zh" | "en" | "vi",
     ) => ReadonlyArray<PostWriteViolation>;
 
     const result = validateWithLanguage(content, baseProfile, null, "en");
@@ -281,6 +310,48 @@ describe("validatePostWrite", () => {
     expect(findRule(result, "Dialogue pressure")).toBeDefined();
     expect(findRule(result, "Dialogue pressure")?.severity).toBe("warning");
   });
+  it("flags malformed anonymous Vietnamese dialogue and mixed CJK punctuation", () => {
+    const content = [
+      "— Đã về rồi đấy",
+      "",
+      "— Có chuyện gì vậy",
+      "",
+      "Người phụ nữ nói rằng mọi chuyện đã ổn。",
+    ].join("\n");
+
+    const result = validatePostWrite(content, baseProfile, null, "vi");
+
+    expect(findRule(result, "禁止破折号")).toBeUndefined();
+    expect(findRule(result, "vi-dialogue-naturalness")).toBeDefined();
+    expect(findRule(result, "vi-punctuation")).toBeDefined();
+    expect(findRule(result, "vi-dialogue-naturalness")?.suggestion).toContain("xưng hô");
+    expect(findRule(result, "vi-punctuation")?.suggestion).toContain("dấu câu");
+  });
+
+  it("flags Vietnamese prose that stacks vague AI hedges", () => {
+    const content = "Dường như mưa đã tạnh. Có lẽ cô sẽ quay lại. Hình như anh đã biết từ trước.";
+
+    const result = validatePostWrite(content, baseProfile, null, "vi");
+
+    expect(findRule(result, "vi-natural-prose")).toBeDefined();
+    expect(findRule(result, "vi-natural-prose")?.severity).toBe("warning");
+  });
+
+  it("accepts natural Vietnamese dialogue with relationship-aware address and punctuation", () => {
+    const content = [
+      '"Anh về rồi à?" Mai hỏi, tay vẫn giữ trên quai túi.',
+      "",
+      '"Ừ, em đợi lâu chưa?" Nam đặt chìa khóa xuống bàn.',
+      "",
+      "Mai lắc đầu. Cô kéo ghế cho anh rồi mới ngồi xuống.",
+    ].join("\n");
+
+    const result = validatePostWrite(content, baseProfile, null, "vi");
+
+    expect(findRule(result, "vi-dialogue-naturalness")).toBeUndefined();
+    expect(findRule(result, "vi-punctuation")).toBeUndefined();
+  });
+
 
   it("detects paragraph density drift against recent chapters", () => {
     const recent = [

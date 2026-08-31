@@ -30,14 +30,63 @@ function filmDeps(overrides: Partial<FilmLLMDeps> = {}): FilmLLMDeps {
   };
 }
 
+function expectVietnameseGraphContext(userPrompt: string): void {
+  expect(userPrompt).toContain("# Phim tương tác: Hồ sơ mất tích");
+  expect(userPrompt).toContain("Cốt lõi: Tìm hồ sơ");
+  expect(userPrompt).toContain("Chủ đề: Niềm tin");
+  expect(userPrompt).toContain("Thể loại: Trinh thám");
+  expect(userPrompt).toContain("Quy tắc thế giới: Không phép thuật");
+  expect(userPrompt).toContain("Thời lượng: 30 phút");
+  expect(userPrompt).toContain("Biến: trust");
+  expect(userPrompt).toContain("Các nút:");
+  expect(userPrompt).toContain("n1[branch] Ngã rẽ");
+  expect(userPrompt).toContain("Công khai→e");
+  expect(userPrompt).toContain("Hồ sơ nhân vật:");
+  expect(userPrompt).toContain("Mai (protagonist)");
+  expect(userPrompt).toContain("Động lực: Tìm sự thật");
+  expect(userPrompt).toContain("Giọng thoại: Dứt khoát / Trang trọng");
+  expect(userPrompt).not.toContain("互动影游");
+  expect(userPrompt).not.toContain("核心：");
+  expect(userPrompt).not.toContain("角色档案：");
+}
+
 describe("film authoring LLM tools language switch", () => {
   let root: string;
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "if-en-"));
     await mkdir(join(root, "interactive-films", "p"), { recursive: true });
     await saveStoryGraph(root, "p", StoryGraphSchema.parse({
-      schemaVersion: 1, projectId: "p", title: "T", variables: [],
-      nodes: [{ id: "n1", type: "branch", choices: [] }, { id: "e", type: "ending", choices: [] }],
+      schemaVersion: 1,
+      projectId: "p",
+      title: "Hồ sơ mất tích",
+      worldAnchor: {
+        storyCore: "Tìm hồ sơ",
+        theme: "Niềm tin",
+        genre: "Trinh thám",
+        worldRules: "Không phép thuật",
+        durationMinutes: 30,
+      },
+      characters: [{
+        id: "mai",
+        name: "Mai",
+        role: "protagonist",
+        motivation: "Tìm sự thật",
+        voiceProfile: {
+          speakingRhythm: "Dứt khoát",
+          vocabulary: "Trang trọng",
+          sampleLines: ["Hồ sơ không biết nói dối."],
+        },
+      }],
+      variables: [{ name: "trust", type: "counter", default: 0, desc: "Mức độ tin cậy" }],
+      nodes: [
+        {
+          id: "n1",
+          type: "branch",
+          title: "Ngã rẽ",
+          choices: [{ id: "public", text: "Công khai", targetNodeId: "e" }],
+        },
+        { id: "e", type: "ending", title: "Sự thật", choices: [] },
+      ],
       endings: [],
     }));
   });
@@ -131,5 +180,68 @@ describe("film authoring LLM tools language switch", () => {
 
     expect(systemPrompt).toContain("你是互动影游编剧");
     expect(userPrompt).toContain("骨架指令：三幕");
+  });
+
+  it("fill_node with language vi sends the Vietnamese node system prompt and user prompt", async () => {
+    let systemPrompt = "";
+    let userPrompt = "";
+    const tool = createFillNodeTool(root, "p", filmDeps({
+      submitNode: async (system, user, nodeId) => {
+        systemPrompt = system;
+        userPrompt = user;
+        return { ...node, id: nodeId };
+      },
+    }), "vi");
+
+    await tool.execute("call-6", { nodeId: "n1", instruction: "Viết cảnh quyết định" } as never);
+
+    expect(systemPrompt).toContain("Bạn là biên kịch phim tương tác");
+    expect(systemPrompt).toContain("submit_story_node");
+    expect(systemPrompt).not.toContain("You are an interactive film scriptwriter");
+    expect(systemPrompt).not.toContain("你是互动影游编剧");
+    expect(userPrompt).toContain("Id nút cần viết: n1");
+    expect(userPrompt).toContain("Chỉ dẫn: Viết cảnh quyết định");
+    expectVietnameseGraphContext(userPrompt);
+  });
+
+  it("revise_node with language vi sends the Vietnamese node system prompt and user prompt", async () => {
+    let systemPrompt = "";
+    let userPrompt = "";
+    const tool = createReviseNodeTool(root, "p", filmDeps({
+      submitNode: async (system, user, nodeId) => {
+        systemPrompt = system;
+        userPrompt = user;
+        return { ...node, id: nodeId };
+      },
+    }), "vi");
+
+    await tool.execute("call-7", { nodeId: "n1", instruction: "Viết lại đoạn đối thoại" } as never);
+
+    expect(systemPrompt).toContain("Bạn là biên kịch phim tương tác");
+    expect(systemPrompt).not.toContain("你是互动影游编剧");
+    expect(userPrompt).toContain("Id nút cần sửa: n1");
+    expect(userPrompt).toContain("Chỉ dẫn sửa: Viết lại đoạn đối thoại");
+    expectVietnameseGraphContext(userPrompt);
+  });
+
+  it("draft_structure with language vi sends the Vietnamese structure system prompt and user prompt", async () => {
+    let systemPrompt = "";
+    let userPrompt = "";
+    const tool = createDraftStructureTool(root, "p", filmDeps({
+      submitStructure: async (system, user) => {
+        systemPrompt = system;
+        userPrompt = user;
+        return structureNodes;
+      },
+    }), "vi");
+
+    await tool.execute("call-8", { instruction: "Ba hồi" } as never);
+
+    expect(systemPrompt).toContain("Bạn là biên kịch phim tương tác");
+    expect(systemPrompt).toContain("khung phân nhánh");
+    expect(systemPrompt).toContain("submit_story_structure");
+    expect(systemPrompt).not.toContain("你是互动影游编剧");
+    expect(userPrompt).toContain("Chỉ dẫn khung: Ba hồi");
+    expectVietnameseGraphContext(userPrompt);
   });
 });

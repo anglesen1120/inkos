@@ -148,14 +148,14 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-32 space-y-4">
       <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-      <span className="text-sm text-muted-foreground animate-pulse">Gathering manuscripts...</span>
+      <span className="text-sm text-muted-foreground animate-pulse">{t("common.loading")}</span>
     </div>
   );
 
   if (error) return (
     <div className="flex flex-col items-center justify-center py-20 bg-destructive/5 border border-destructive/20 rounded-2xl">
       <AlertCircle className="text-destructive mb-4" size={32} />
-      <h2 className="text-lg font-semibold text-destructive">Failed to load library</h2>
+      <h2 className="text-lg font-semibold text-destructive">{t("common.error")}</h2>
       <p className="text-sm text-muted-foreground mt-1">{error}</p>
     </div>
   );
@@ -186,14 +186,14 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
       {!hasServices && (
         <div className="rounded-lg border border-border/60 bg-card px-5 py-4 mb-8 flex items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-medium">还没有配置 AI 模型</div>
-            <div className="text-xs text-muted-foreground mt-0.5">配好一个服务商才能开始创作</div>
+            <div className="text-sm font-medium">{t("dash.noModel")}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{t("dash.configureModelHint")}</div>
           </div>
           <button
             onClick={nav.toServices}
             className="px-4 py-2 text-xs rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors shrink-0"
           >
-            去配置
+            {t("dash.configureModel")}
           </button>
         </div>
       )}
@@ -273,7 +273,7 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
                   <button
                     onClick={async () => {
                       try { await postApi(`/books/${book.id}/write-next`); }
-                      catch (e) { alert(e instanceof Error ? e.message : "Write failed"); }
+                      catch (e) { alert(e instanceof Error ? e.message : t("dash.writeFailed")); }
                     }}
                     disabled={isWriting}
                     className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${
@@ -332,8 +332,8 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
                 <Flame size={18} className="animate-pulse" />
               </div>
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-widest text-primary"> Manuscript Foundry</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Real-time LLM generation tracking</p>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-primary">{t("dash.manuscriptFoundry")}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("dash.realtimeTracking")}</p>
               </div>
             </div>
             {progressEvent && (
@@ -345,7 +345,7 @@ export function Dashboard({ nav, sse, theme, t }: { nav: Nav; sse: { messages: R
                 <div className="w-px h-3 bg-primary/20" />
                 <div className="flex items-center gap-2">
                   <Zap size={12} />
-                  <span>{((progressEvent.data as { totalChars?: number })?.totalChars ?? 0).toLocaleString()} Chars</span>
+                  <span>{((progressEvent.data as { totalChars?: number })?.totalChars ?? 0).toLocaleString()} {t("dash.chars")}</span>
                 </div>
               </div>
             )}

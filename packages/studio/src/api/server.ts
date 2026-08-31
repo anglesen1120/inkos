@@ -148,51 +148,54 @@ import {
 
 // -- Studio server language (read per request from the project config's `language`) --
 
-type StudioLanguage = "zh" | "en";
+type StudioLanguage = "zh" | "en" | "vi";
 
 function normalizeStudioLanguage(value: unknown): StudioLanguage {
-  return value === "en" ? "en" : "zh";
+  if (value === "en") return "en";
+  if (value === "vi" || value === "vi-VN" || value === "vi_VN" || value === "vi_VN.UTF-8") return "vi";
+  return "zh";
 }
 
-function pick(lang: StudioLanguage, zh: string, en: string): string {
-  return lang === "en" ? en : zh;
+export function pick(lang: StudioLanguage, zh: string, en: string, vi: string): string {
+  if (lang === "en") return en;
+  if (lang === "vi") return vi;
+  return zh;
 }
 
-// -- Pipeline stage definitions per agent type --
-
-interface BilingualLabel {
+interface StudioLocalizedLabel {
   readonly zh: string;
   readonly en: string;
+  readonly vi: string;
 }
 
-const PIPELINE_STAGES: Record<string, ReadonlyArray<BilingualLabel>> = {
+const PIPELINE_STAGES: Record<string, ReadonlyArray<StudioLocalizedLabel>> = {
   writer: [
-    { zh: "准备章节输入", en: "Prepare chapter input" },
-    { zh: "撰写章节草稿", en: "Write chapter draft" },
-    { zh: "落盘最终章节", en: "Save final chapter" },
-    { zh: "生成最终真相文件", en: "Generate final truth files" },
-    { zh: "校验真相文件变更", en: "Validate truth file changes" },
-    { zh: "同步记忆索引", en: "Sync memory index" },
-    { zh: "更新章节索引与快照", en: "Update chapter index and snapshot" },
+    { zh: "准备章节输入", en: "Prepare chapter input", vi: "Chuẩn bị đầu vào chương" },
+    { zh: "撰写章节草稿", en: "Write chapter draft", vi: "Viết bản nháp chương" },
+    { zh: "落盘最终章节", en: "Save final chapter", vi: "Lưu chương cuối" },
+    { zh: "生成最终真相文件", en: "Generate final truth files", vi: "Tạo tệp sự thật cuối" },
+    { zh: "校验真相文件变更", en: "Validate truth file changes", vi: "Kiểm tra thay đổi tệp sự thật" },
+    { zh: "同步记忆索引", en: "Sync memory index", vi: "Đồng bộ chỉ mục ký ức" },
+    { zh: "更新章节索引与快照", en: "Update chapter index and snapshot", vi: "Cập nhật chỉ mục chương và snapshot" },
   ],
   architect: [
-    { zh: "生成基础设定", en: "Generate foundation" },
-    { zh: "保存书籍配置", en: "Save book config" },
-    { zh: "写入基础设定文件", en: "Write foundation files" },
-    { zh: "初始化控制文档", en: "Initialize control documents" },
-    { zh: "创建初始快照", en: "Create initial snapshot" },
+    { zh: "生成基础设定", en: "Generate foundation", vi: "Tạo nền tảng truyện" },
+    { zh: "保存书籍配置", en: "Save book config", vi: "Lưu cấu hình sách" },
+    { zh: "写入基础设定文件", en: "Write foundation files", vi: "Ghi tệp nền tảng" },
+    { zh: "初始化控制文档", en: "Initialize control documents", vi: "Khởi tạo tài liệu điều khiển" },
+    { zh: "创建初始快照", en: "Create initial snapshot", vi: "Tạo snapshot ban đầu" },
   ],
   reviser: [
-    { zh: "加载修订上下文", en: "Load revision context" },
-    { zh: "修订章节", en: "Revise chapter" },
-    { zh: "落盘修订结果", en: "Save revision result" },
-    { zh: "更新索引与快照", en: "Update index and snapshot" },
+    { zh: "加载修订上下文", en: "Load revision context", vi: "Tải ngữ cảnh sửa đổi" },
+    { zh: "修订章节", en: "Revise chapter", vi: "Sửa chương" },
+    { zh: "落盘修订结果", en: "Save revision result", vi: "Lưu kết quả sửa đổi" },
+    { zh: "更新索引与快照", en: "Update index and snapshot", vi: "Cập nhật chỉ mục và snapshot" },
   ],
-  auditor: [{ zh: "审计章节", en: "Audit chapter" }],
+  auditor: [{ zh: "审计章节", en: "Audit chapter", vi: "Kiểm tra chương" }],
 };
 
 function pipelineStages(agent: string, lang: StudioLanguage = "zh"): string[] | undefined {
-  return PIPELINE_STAGES[agent]?.map((stage) => pick(lang, stage.zh, stage.en));
+  return PIPELINE_STAGES[agent]?.map((stage) => pick(lang, stage.zh, stage.en, stage.vi));
 }
 
 function attachmentDisposition(fileName: string): string {
@@ -200,53 +203,54 @@ function attachmentDisposition(fileName: string): string {
   return `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
-const AGENT_LABELS: Record<string, BilingualLabel> = {
-  architect: { zh: "建书", en: "Book setup" },
-  writer: { zh: "写作", en: "Writing" },
-  auditor: { zh: "审计", en: "Audit" },
-  reviser: { zh: "修订", en: "Revision" },
-  exporter: { zh: "导出", en: "Export" },
+const AGENT_LABELS: Record<string, StudioLocalizedLabel> = {
+  architect: { zh: "建书", en: "Book setup", vi: "Thiết lập sách" },
+  writer: { zh: "写作", en: "Writing", vi: "Viết" },
+  auditor: { zh: "审计", en: "Audit", vi: "Kiểm tra" },
+  reviser: { zh: "修订", en: "Revision", vi: "Sửa đổi" },
+  exporter: { zh: "导出", en: "Export", vi: "Xuất" },
 };
-const TOOL_LABELS: Record<string, BilingualLabel> = {
-  read: { zh: "读取文件", en: "Read file" },
-  edit: { zh: "编辑文件", en: "Edit file" },
-  grep: { zh: "搜索", en: "Search" },
-  ls: { zh: "列目录", en: "List directory" },
-  propose_action: { zh: "确认动作", en: "Confirm action" },
-  short_fiction_run: { zh: "短篇生产", en: "Short fiction" },
-  script_create: { zh: "剧本创作", en: "Script creation" },
-  storyboard_create: { zh: "分镜创作", en: "Storyboard creation" },
-  interactive_film_create: { zh: "互动影游", en: "Interactive film" },
-  translation_create: { zh: "翻译项目", en: "Translation" },
-  fanfic_create: { zh: "同人创作", en: "Fanfiction" },
-  continuation_import: { zh: "导入续写", en: "Continuation import" },
-  spinoff_create: { zh: "番外创作", en: "Side story" },
-  imitation_create: { zh: "仿写创作", en: "Style imitation" },
-  generate_cover: { zh: "生成封面", en: "Cover generation" },
-  play_edit: { zh: "编辑互动世界", en: "Edit interactive world" },
-  play_start: { zh: "启动互动世界", en: "Start interactive world" },
-  play_revise: { zh: "重做互动回合", en: "Redo interactive turn" },
-  play_step: { zh: "推进互动世界", en: "Advance interactive world" },
-  create_narrative_forecast: { zh: "剧情多线推演", en: "Narrative forecast" },
-  get_narrative_forecast: { zh: "核验剧情推演", en: "Recheck forecast" },
-  select_narrative_branch: { zh: "采用候选分支", en: "Select candidate branch" },
+
+const TOOL_LABELS: Record<string, StudioLocalizedLabel> = {
+  read: { zh: "读取文件", en: "Read file", vi: "Đọc tệp" },
+  edit: { zh: "编辑文件", en: "Edit file", vi: "Sửa tệp" },
+  grep: { zh: "搜索", en: "Search", vi: "Tìm kiếm" },
+  ls: { zh: "列目录", en: "List directory", vi: "Liệt kê thư mục" },
+  propose_action: { zh: "确认动作", en: "Confirm action", vi: "Xác nhận thao tác" },
+  short_fiction_run: { zh: "短篇生产", en: "Short fiction", vi: "Truyện ngắn" },
+  script_create: { zh: "剧本创作", en: "Script creation", vi: "Tạo kịch bản" },
+  storyboard_create: { zh: "分镜创作", en: "Storyboard creation", vi: "Tạo phân cảnh" },
+  interactive_film_create: { zh: "互动影游", en: "Interactive film", vi: "Phim tương tác" },
+  translation_create: { zh: "翻译项目", en: "Translation", vi: "Dịch thuật" },
+  fanfic_create: { zh: "同人创作", en: "Fanfiction", vi: "Fanfiction" },
+  continuation_import: { zh: "导入续写", en: "Continuation import", vi: "Nhập bản viết tiếp" },
+  spinoff_create: { zh: "番外创作", en: "Side story", vi: "Ngoại truyện" },
+  imitation_create: { zh: "仿写创作", en: "Style imitation", vi: "Mô phỏng phong cách" },
+  generate_cover: { zh: "生成封面", en: "Cover generation", vi: "Tạo bìa" },
+  play_edit: { zh: "编辑互动世界", en: "Edit interactive world", vi: "Sửa thế giới tương tác" },
+  play_start: { zh: "启动互动世界", en: "Start interactive world", vi: "Khởi động thế giới tương tác" },
+  play_revise: { zh: "重做互动回合", en: "Redo interactive turn", vi: "Làm lại lượt tương tác" },
+  play_step: { zh: "推进互动世界", en: "Advance interactive world", vi: "Tiếp diễn thế giới tương tác" },
+  create_narrative_forecast: { zh: "剧情多线推演", en: "Narrative forecast", vi: "Dự báo mạch truyện" },
+  get_narrative_forecast: { zh: "核验剧情推演", en: "Recheck forecast", vi: "Kiểm tra lại dự báo" },
+  select_narrative_branch: { zh: "采用候选分支", en: "Select candidate branch", vi: "Chọn nhánh ứng viên" },
 };
 
 function resolveToolLabel(tool: string, agent?: string, lang: StudioLanguage = "zh"): string {
   if (tool === "sub_agent" && agent) {
     const label = AGENT_LABELS[agent];
-    return label ? pick(lang, label.zh, label.en) : agent;
+    return label ? pick(lang, label.zh, label.en, label.vi) : agent;
   }
   const label = TOOL_LABELS[tool];
-  return label ? pick(lang, label.zh, label.en) : tool;
+  return label ? pick(lang, label.zh, label.en, label.vi) : tool;
 }
 
 function formatTaskElapsed(ms: number, lang: StudioLanguage): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  if (minutes === 0) return pick(lang, `${seconds} 秒`, `${seconds}s`);
-  return pick(lang, `${minutes} 分 ${seconds} 秒`, `${minutes}m ${seconds}s`);
+  if (minutes === 0) return pick(lang, `${seconds} 秒`, `${seconds}s`, `${seconds} 秒`);
+  return pick(lang, `${minutes} 分 ${seconds} 秒`, `${minutes}m ${seconds}s`, `${minutes} 分 ${seconds} 秒`);
 }
 
 /**
@@ -257,11 +261,11 @@ function buildRunningTaskContextBlock(task: StudioTaskSnapshot, lang: StudioLang
   const exec = task.execution;
   const elapsed = formatTaskElapsed(Date.now() - exec.startedAt, lang);
   const status = exec.status === "processing"
-    ? pick(lang, "处理中", "processing")
-    : pick(lang, "运行中", "running");
+    ? pick(lang, "处理中", "processing", "处理中")
+    : pick(lang, "运行中", "running", "运行中");
   const logsTail = (exec.logs ?? []).slice(-3);
   const logsBlock = logsTail.length > 0
-    ? `\n${pick(lang, "- 最近日志：", "- Recent logs:")}\n${logsTail.map((line) => `  - ${line}`).join("\n")}`
+    ? `\n${pick(lang, "- 最近日志：", "- Recent logs:", "- 最近日志：")}\n${logsTail.map((line) => `  - ${line}`).join("\n")}`
     : "";
   return pick(
     lang,
@@ -280,6 +284,14 @@ function buildRunningTaskContextBlock(task: StudioTaskSnapshot, lang: StudioLang
       `- Status: ${status}`,
       `- Elapsed: ${elapsed}${logsBlock}`,
       "The task runs independently in the background; this chat turn does not interrupt it. When the user asks about its progress, answer truthfully from the information above. Do not start another production task of the same kind, and do not claim that no task is running. Production tools are temporarily unavailable and will be restored when the task finishes.",
+    ].join("\n"),
+    [
+      "## Trạng thái tác vụ nền",
+      "Phiên này đang có một tác vụ sản xuất chạy nền:",
+      `- Tác vụ: ${exec.label} (${exec.tool})`,
+      `- Trạng thái: ${status}`,
+      `- Đã chạy: ${elapsed}${logsBlock}`,
+      "Tác vụ chạy độc lập ở chế độ nền và không bị gián đoạn bởi lượt trò chuyện này. Khi người dùng hỏi tiến độ, hãy trả lời trung thực theo thông tin trên. Không khởi chạy thêm tác vụ sản xuất cùng loại và không nói rằng không có tác vụ đang chạy. Công cụ sản xuất tạm thời không khả dụng và sẽ hoạt động lại khi tác vụ hoàn tất.",
     ].join("\n"),
   );
 }
@@ -420,7 +432,8 @@ function nonTextModelMessage(modelId: string, lang: StudioLanguage = "zh"): stri
   return pick(
     lang,
     `模型 ${modelId} 不适合文本聊天/写作。请在模型选择器中改用文本模型，例如 gemini-2.5-flash、gemini-2.5-pro 或对应服务的 chat 模型。`,
-    `Model ${modelId} is not suitable for text chat/writing. Pick a text model in the model selector, e.g. gemini-2.5-flash, gemini-2.5-pro, or the service's chat model.`,
+    `Model ${modelId} is not suitable for text chat/writing. Pick a text model in the model selector, e.g. gemini-2.5-flash, gemini-2.5-pro or the service's chat model.`,
+    `Model ${modelId} không phù hợp để trò chuyện/viết văn bản. Hãy chọn model văn bản trong bộ chọn model, chẳng hạn gemini-2.5-flash, gemini-2.5-pro hoặc model chat của nhà cung cấp.`,
   );
 }
 
@@ -997,11 +1010,12 @@ function validateAgentActionExecution(args: {
   const lang = args.language ?? "zh";
   const failedExec = args.collectedToolExecs.find(isLikelyFailedToolResult);
   if (failedExec) {
-    const detail = failedExec.error ?? failedExec.result ?? pick(lang, "未知错误", "unknown error");
+    const detail = failedExec.error ?? failedExec.result ?? pick(lang, "未知错误", "unknown error", "未知错误");
     return pick(
       lang,
       `${failedExec.label} 执行失败：${detail}`,
       `${failedExec.label} failed: ${detail}`,
+      `${failedExec.label} thất bại: ${detail}`,
     );
   }
 
@@ -1014,6 +1028,7 @@ function validateAgentActionExecution(args: {
       lang,
       "模型声称已完成下一章，但没有实际调用写作工具。请重试；如果仍失败，请检查模型是否支持工具调用。",
       "The model claimed the next chapter is done, but it never called the writing tool. Retry; if it keeps failing, check whether the model supports tool calls.",
+      "Model cho biết đã hoàn thành chương tiếp theo nhưng chưa gọi công cụ viết. Hãy thử lại; nếu vẫn lỗi, kiểm tra model có hỗ trợ gọi công cụ không.",
     );
   }
 
@@ -1026,6 +1041,7 @@ function validateAgentActionExecution(args: {
       lang,
       "已确认建书，但模型没有实际调用建书工具。请重试；如果仍失败，请检查模型是否支持工具调用。",
       "Book creation was confirmed, but the model never called the book setup tool. Retry; if it keeps failing, check whether the model supports tool calls.",
+      "Đã xác nhận tạo sách nhưng model chưa gọi công cụ thiết lập sách. Hãy thử lại; nếu vẫn lỗi, kiểm tra model có hỗ trợ gọi công cụ không.",
     );
   }
 
@@ -1034,6 +1050,7 @@ function validateAgentActionExecution(args: {
       lang,
       "已确认生成短篇，但模型没有实际调用短篇生产工具。请重试；如果仍失败，请检查模型是否支持工具调用。",
       "Short fiction was confirmed, but the model never called the short fiction tool. Retry; if it keeps failing, check whether the model supports tool calls.",
+      "Đã xác nhận tạo truyện ngắn nhưng model chưa gọi công cụ sản xuất truyện ngắn. Hãy thử lại; nếu vẫn lỗi, kiểm tra model có hỗ trợ gọi công cụ không.",
     );
   }
 
@@ -1042,6 +1059,7 @@ function validateAgentActionExecution(args: {
       lang,
       "已确认启动互动世界，但模型没有实际调用互动世界工具。请重试；如果仍失败，请检查模型是否支持工具调用。",
       "Starting the interactive world was confirmed, but the model never called the interactive world tool. Retry; if it keeps failing, check whether the model supports tool calls.",
+      "Đã xác nhận khởi động thế giới tương tác nhưng model chưa gọi công cụ thế giới tương tác. Hãy thử lại; nếu vẫn lỗi, kiểm tra model có hỗ trợ gọi công cụ không.",
     );
   }
 
@@ -1050,6 +1068,7 @@ function validateAgentActionExecution(args: {
       lang,
       "已确认生成封面，但模型没有实际调用封面工具。请重试；如果仍失败，请检查模型是否支持工具调用。",
       "Cover generation was confirmed, but the model never called the cover tool. Retry; if it keeps failing, check whether the model supports tool calls.",
+      "Đã xác nhận tạo bìa nhưng model chưa gọi công cụ tạo bìa. Hãy thử lại; nếu vẫn lỗi, kiểm tra model có hỗ trợ gọi công cụ không.",
     );
   }
 
@@ -1091,7 +1110,7 @@ function formatAgentFailure(
   if (kind === "internal") {
     return {
       code: "AGENT_INTERNAL_ERROR",
-      message: pick(lang, `InkOS 内部流程错误：${message}`, `InkOS internal pipeline error: ${message}`),
+      message: pick(lang, `InkOS 内部流程错误：${message}`, `InkOS internal pipeline error: ${message}`, `InkOS 内部流程错误：${message}`),
       status: 500,
     };
   }
@@ -1199,7 +1218,7 @@ function requirePayloadText(value: string | undefined, message: string): string 
 
 function toolResultText(result: unknown, lang: StudioLanguage = "zh"): string {
   const text = extractToolError(result).trim();
-  return text || pick(lang, "已完成。", "Done.");
+  return text || pick(lang, "已完成。", "Done.", "已完成。");
 }
 
 async function executeConfirmedProductionAction(args: {
@@ -1255,7 +1274,7 @@ async function executeConfirmedProductionAction(args: {
 
   if (args.requestedIntent === "create_book") {
     const payload = actionPayload?.createBook;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认建书缺少书名，请重新生成确认卡。", "The book creation confirmation is missing a title. Regenerate the confirmation card."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认建书缺少书名，请重新生成确认卡。", "The book creation confirmation is missing a title. Regenerate the confirmation card.", "确认建书缺少书名，请重新生成确认卡。"));
     tool = createSubAgentTool(args.pipeline, null, args.root, {
       actionPayload,
       workerSkills: (worker) => worker === "architect" ? productionSkills("longWriting") : [],
@@ -1274,7 +1293,7 @@ async function executeConfirmedProductionAction(args: {
   } else if (args.requestedIntent === "short_run") {
     const payload = actionPayload?.shortRun;
     const direction = payload?.direction?.trim() || args.instruction.trim();
-    if (!direction) throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "确认短篇缺少方向，请重新生成确认卡。", "The short fiction confirmation is missing a direction. Regenerate the confirmation card."));
+    if (!direction) throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "确认短篇缺少方向，请重新生成确认卡。", "The short fiction confirmation is missing a direction. Regenerate the confirmation card.", "确认短篇缺少方向，请重新生成确认卡。"));
     tool = createShortFictionRunTool(args.pipeline, args.root, {
       actionPayload,
       language: lang,
@@ -1290,7 +1309,7 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "write_next") {
     if (!args.bookId) {
-      throw new ApiError(400, "BOOK_ID_REQUIRED", pick(lang, "写下一章需要先打开一本书。", "Writing the next chapter requires an active book."));
+      throw new ApiError(400, "BOOK_ID_REQUIRED", pick(lang, "写下一章需要先打开一本书。", "Writing the next chapter requires an active book.", "写下一章需要先打开一本书。"));
     }
     const chapterCount = actionPayload?.writeNext?.chapterCount ?? 1;
     tool = createSubAgentTool(args.pipeline, args.bookId, args.root, {
@@ -1306,7 +1325,7 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "generate_cover") {
     const payload = actionPayload?.generateCover;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认生成封面缺少标题，请重新生成确认卡。", "The cover generation confirmation is missing a title. Regenerate the confirmation card."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认生成封面缺少标题，请重新生成确认卡。", "The cover generation confirmation is missing a title. Regenerate the confirmation card.", "确认生成封面缺少标题，请重新生成确认卡。"));
     tool = createGenerateCoverTool(args.root, { actionPayload });
     params = {
       title,
@@ -1317,7 +1336,7 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "script_create") {
     const payload = actionPayload?.scriptCreate;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认创建剧本缺少标题，请重新生成确认卡。", "The script creation confirmation is missing a title. Regenerate the confirmation card."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认创建剧本缺少标题，请重新生成确认卡。", "The script creation confirmation is missing a title. Regenerate the confirmation card.", "确认创建剧本缺少标题，请重新生成确认卡。"));
     tool = createScriptCreationTool(args.pipeline, args.root, {
       actionPayload,
       language: lang,
@@ -1338,7 +1357,7 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "storyboard_create") {
     const payload = actionPayload?.storyboardCreate;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认创建分镜缺少标题，请重新生成确认卡。", "The storyboard creation confirmation is missing a title. Regenerate the confirmation card."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认创建分镜缺少标题，请重新生成确认卡。", "The storyboard creation confirmation is missing a title. Regenerate the confirmation card.", "确认创建分镜缺少标题，请重新生成确认卡。"));
     tool = createStoryboardCreationTool(args.pipeline, args.root, {
       actionPayload,
       language: lang,
@@ -1360,7 +1379,7 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "interactive_film_create") {
     const payload = actionPayload?.interactiveFilmCreate;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认创建互动影游缺少标题，请重新生成确认卡。", "The interactive film confirmation is missing a title. Regenerate the confirmation card."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认创建互动影游缺少标题，请重新生成确认卡。", "The interactive film confirmation is missing a title. Regenerate the confirmation card.", "确认创建互动影游缺少标题，请重新生成确认卡。"));
     tool = createInteractiveFilmCreationTool(args.pipeline, args.root, {
       actionPayload,
       language: lang,
@@ -1383,9 +1402,9 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "translation_create") {
     const payload = actionPayload?.translationCreate;
-    const filePath = requirePayloadText(payload?.filePath, pick(lang, "确认创建翻译项目缺少文件路径，请重新生成确认卡。", "The translation confirmation is missing a file path. Regenerate the confirmation card."));
-    const sourceLanguage = requirePayloadText(payload?.sourceLanguage, pick(lang, "确认创建翻译项目缺少源语言，请重新生成确认卡。", "The translation confirmation is missing a source language. Regenerate the confirmation card."));
-    const targetLanguage = requirePayloadText(payload?.targetLanguage, pick(lang, "确认创建翻译项目缺少目标语言，请重新生成确认卡。", "The translation confirmation is missing a target language. Regenerate the confirmation card."));
+    const filePath = requirePayloadText(payload?.filePath, pick(lang, "确认创建翻译项目缺少文件路径，请重新生成确认卡。", "The translation confirmation is missing a file path. Regenerate the confirmation card.", "确认创建翻译项目缺少文件路径，请重新生成确认卡。"));
+    const sourceLanguage = requirePayloadText(payload?.sourceLanguage, pick(lang, "确认创建翻译项目缺少源语言，请重新生成确认卡。", "The translation confirmation is missing a source language. Regenerate the confirmation card.", "确认创建翻译项目缺少源语言，请重新生成确认卡。"));
+    const targetLanguage = requirePayloadText(payload?.targetLanguage, pick(lang, "确认创建翻译项目缺少目标语言，请重新生成确认卡。", "The translation confirmation is missing a target language. Regenerate the confirmation card.", "确认创建翻译项目缺少目标语言，请重新生成确认卡。"));
     tool = createTranslationCreateTool(args.root, { actionPayload });
     params = {
       filePath,
@@ -1396,9 +1415,9 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "fanfic_init") {
     const payload = actionPayload?.fanficCreate;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认创建同人缺少书名，请补充后重新确认。", "The fanfiction confirmation is missing a title."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认创建同人缺少书名，请补充后重新确认。", "The fanfiction confirmation is missing a title.", "确认创建同人缺少书名，请补充后重新确认。"));
     if (!payload?.sourceText?.trim() && !payload?.sourcePath?.trim()) {
-      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "创建同人需要原作资料或上传文件。", "Fanfiction creation requires source material or an uploaded file."));
+      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "创建同人需要原作资料或上传文件。", "Fanfiction creation requires source material or an uploaded file.", "创建同人需要原作资料或上传文件。"));
     }
     tool = createFanficBookTool(args.pipeline, args.root, {
       defaultSkills: productionSkills("longWriting"),
@@ -1417,10 +1436,10 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "continuation_import") {
     const payload = actionPayload?.continuationImport;
-    const sourcePath = requirePayloadText(payload?.sourcePath, pick(lang, "导入续写需要上传文件或章节目录。", "Continuation import requires an uploaded file or chapter directory."));
+    const sourcePath = requirePayloadText(payload?.sourcePath, pick(lang, "导入续写需要上传文件或章节目录。", "Continuation import requires an uploaded file or chapter directory.", "导入续写需要上传文件或章节目录。"));
     const targetBookId = payload?.bookId ?? args.bookId ?? undefined;
     if (!targetBookId && !payload?.title?.trim()) {
-      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "导入续写需要选择已有书籍或填写新书名。", "Continuation import requires an existing book or a new title."));
+      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "导入续写需要选择已有书籍或填写新书名。", "Continuation import requires an existing book or a new title.", "导入续写需要选择已有书籍或填写新书名。"));
     }
     tool = createContinuationImportTool(args.pipeline, args.bookId, args.root, {
       defaultSkills: productionSkills("longWriting"),
@@ -1439,8 +1458,8 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "spinoff_create") {
     const payload = actionPayload?.spinoffCreate;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认创建番外缺少书名。", "The side-story confirmation is missing a title."));
-    const parentBookId = requirePayloadText(payload?.parentBookId ?? args.bookId ?? undefined, pick(lang, "创建番外需要指定正传书籍。", "Side-story creation requires a parent book."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认创建番外缺少书名。", "The side-story confirmation is missing a title.", "确认创建番外缺少书名。"));
+    const parentBookId = requirePayloadText(payload?.parentBookId ?? args.bookId ?? undefined, pick(lang, "创建番外需要指定正传书籍。", "Side-story creation requires a parent book.", "创建番外需要指定正传书籍。"));
     tool = createSpinoffBookTool(args.pipeline, args.root, {
       defaultSkills: productionSkills("longWriting"),
     });
@@ -1456,10 +1475,10 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "style_imitation") {
     const payload = actionPayload?.imitationCreate;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认创建仿写缺少书名。", "The imitation confirmation is missing a title."));
-    const storyIdea = requirePayloadText(payload?.storyIdea, pick(lang, "仿写需要一个原创故事方向。", "Style imitation requires an original story idea."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认创建仿写缺少书名。", "The imitation confirmation is missing a title.", "确认创建仿写缺少书名。"));
+    const storyIdea = requirePayloadText(payload?.storyIdea, pick(lang, "仿写需要一个原创故事方向。", "Style imitation requires an original story idea.", "仿写需要一个原创故事方向。"));
     if (!payload?.referenceText?.trim() && !payload?.referencePath?.trim()) {
-      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "仿写需要参考文本或上传文件。", "Style imitation requires reference text or an uploaded file."));
+      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "仿写需要参考文本或上传文件。", "Style imitation requires reference text or an uploaded file.", "仿写需要参考文本或上传文件。"));
     }
     tool = createImitationBookTool(args.pipeline, args.root, {
       defaultSkills: productionSkills("longWriting"),
@@ -1478,7 +1497,7 @@ async function executeConfirmedProductionAction(args: {
     };
   } else if (args.requestedIntent === "play_start") {
     const payload = actionPayload?.playStart;
-    const title = requirePayloadText(payload?.title, pick(lang, "确认启动互动世界缺少标题，请重新生成确认卡。", "The interactive world start confirmation is missing a title. Regenerate the confirmation card."));
+    const title = requirePayloadText(payload?.title, pick(lang, "确认启动互动世界缺少标题，请重新生成确认卡。", "The interactive world start confirmation is missing a title. Regenerate the confirmation card.", "确认启动互动世界缺少标题，请重新生成确认卡。"));
     const fallbackScene = [payload?.premise, args.instruction].filter((part): part is string => typeof part === "string" && part.trim().length > 0).join("\n\n");
     const initialScene = payload?.initialScene?.trim() || fallbackScene.trim();
     const confirmedActionPayload: ActionPayload | undefined = actionPayload
@@ -1519,7 +1538,7 @@ async function executeConfirmedProductionAction(args: {
   } else if (args.requestedIntent === "connect_choice") {
     const payload = actionPayload?.connectChoice;
     if (!payload?.node) {
-      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "确认连接选择缺少节点数据，请重新生成确认卡。", "The connect-choice confirmation is missing node data. Regenerate the confirmation card."));
+      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "确认连接选择缺少节点数据，请重新生成确认卡。", "The connect-choice confirmation is missing node data. Regenerate the confirmation card.", "确认连接选择缺少节点数据，请重新生成确认卡。"));
     }
     const projectId = payload?.projectId ?? args.bookId;
     if (!projectId) throw new ApiError(400, "INVALID_ID", "interactive-film action requires a project id (bookId)");
@@ -1530,7 +1549,7 @@ async function executeConfirmedProductionAction(args: {
   } else if (args.requestedIntent === "remove_node") {
     const payload = actionPayload?.removeNode;
     if (!payload?.nodeId) {
-      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "确认删除节点缺少 nodeId，请重新生成确认卡。", "The remove-node confirmation is missing a nodeId. Regenerate the confirmation card."));
+      throw new ApiError(400, "CONFIRMED_ACTION_PAYLOAD_INCOMPLETE", pick(lang, "确认删除节点缺少 nodeId，请重新生成确认卡。", "The remove-node confirmation is missing a nodeId. Regenerate the confirmation card.", "确认删除节点缺少 nodeId，请重新生成确认卡。"));
     }
     const projectId = payload?.projectId ?? args.bookId;
     if (!projectId) throw new ApiError(400, "INVALID_ID", "interactive-film action requires a project id (bookId)");
@@ -2214,7 +2233,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
       promise,
       new Promise<never>((_, reject) => {
         timeout = setTimeout(
-          () => reject(new Error(pick(lang, `${label} 超时（${timeoutMs}ms）`, `${label} timed out (${timeoutMs}ms)`))),
+          () => reject(new Error(pick(lang, `${label} 超时（${timeoutMs}ms）`, `${label} timed out (${timeoutMs}ms)`, `${label} 超时（${timeoutMs}ms）`))),
           timeoutMs,
         );
       }),
@@ -2243,42 +2262,46 @@ function formatServiceProbeError(args: {
     : "";
   const protocol = args.apiFormat === "responses" ? "Responses" : "Chat / Completions";
   const streamSuffix = typeof args.stream === "boolean"
-    ? pick(lang, `，${args.stream ? "流式" : "非流式"}`, `, ${args.stream ? "streaming" : "non-streaming"}`)
+    ? pick(lang, `，${args.stream ? "流式" : "非流式"}`, `, ${args.stream ? "streaming" : "non-streaming"}`, `，${args.stream ? "trực tuyến" : "không trực tuyến"}`)
     : "";
   const context = [
-    pick(lang, `服务商：${args.label ?? args.service}`, `Service: ${args.label ?? args.service}`),
-    pick(lang, `测试模型：${args.model ?? "未确定"}`, `Test model: ${args.model ?? "undetermined"}`),
-    pick(lang, `协议：${protocol}${streamSuffix}`, `Protocol: ${protocol}${streamSuffix}`),
-    pick(lang, `Base URL：${args.baseUrl}`, `Base URL: ${args.baseUrl}`),
+    pick(lang, `服务商：${args.label ?? args.service}`, `Service: ${args.label ?? args.service}`, `Nhà cung cấp: ${args.label ?? args.service}`),
+    pick(lang, `测试模型：${args.model ?? "未确定"}`, `Test model: ${args.model ?? "undetermined"}`, `Model kiểm tra: ${args.model ?? "chưa xác định"}`),
+    pick(lang, `协议：${protocol}${streamSuffix}`, `Protocol: ${protocol}${streamSuffix}`, `Giao thức: ${protocol}${streamSuffix}`),
+    pick(lang, `Base URL：${args.baseUrl}`, `Base URL: ${args.baseUrl}`, `Base URL: ${args.baseUrl}`),
   ].join("\n");
   const upstreamPrefix = (detail: string): string =>
-    pick(lang, `\n上游返回：${detail}`, `\nUpstream response: ${detail}`);
+    pick(lang, `\n上游返回：${detail}`, `\nUpstream response: ${detail}`, `\nPhản hồi từ upstream: ${detail}`);
 
   if (args.service === "google") {
     return [
-      pick(lang, "Google Gemini 测试连接失败。", "Google Gemini connection test failed."),
+      pick(lang, "Google Gemini 测试连接失败。", "Google Gemini connection test failed.", "Google Gemini 测试连接失败。"),
       context,
       "",
-      pick(lang, "请优先检查：", "Check these first:"),
+      pick(lang, "请优先检查：", "Check these first:", "请优先检查："),
       pick(
         lang,
         "1. API Key 是否来自 Google AI Studio 的 Gemini API key，而不是 OAuth、Vertex AI 或其它 Google 服务凭据。",
         "1. The API Key is a Gemini API key from Google AI Studio, not an OAuth, Vertex AI, or other Google service credential.",
+        "1. API Key có phải là Gemini API key từ Google AI Studio, không phải thông tin OAuth, Vertex AI hoặc dịch vụ Google khác.",
       ),
       pick(
         lang,
         "2. 该 key 所属项目是否已启用 Gemini API，并且没有被限制到其它 API、来源或服务。",
         "2. The key's project has the Gemini API enabled and is not restricted to other APIs, origins, or services.",
+        "2. Dự án của key đã bật Gemini API và key không bị giới hạn vào API, nguồn hoặc dịch vụ khác.",
       ),
       pick(
         lang,
         "3. 当前地区/账号是否允许访问 Gemini API。",
         "3. Your region/account is allowed to access the Gemini API.",
+        "3. Khu vực/tài khoản hiện tại có được phép truy cập Gemini API không.",
       ),
       pick(
         lang,
         "4. 如果 key 曾经泄露，请在 AI Studio 重新生成后再保存。",
         "4. If the key was ever leaked, regenerate it in AI Studio before saving.",
+        "4. Nếu key từng bị lộ, hãy tạo lại key trong AI Studio trước khi lưu.",
       ),
       upstreamDetail ? upstreamPrefix(upstreamDetail) : "",
     ].filter(Boolean).join("\n");
@@ -2286,26 +2309,28 @@ function formatServiceProbeError(args: {
 
   if (args.service === "moonshot" || args.service === "kimiCodingPlan" || args.service === "kimicode") {
     return [
-      pick(lang, `${args.label ?? args.service} 测试连接失败。`, `${args.label ?? args.service} connection test failed.`),
+      pick(lang, `${args.label ?? args.service} 测试连接失败。`, `${args.label ?? args.service} connection test failed.`, `Kiểm tra kết nối ${args.label ?? args.service} thất bại.`),
       context,
       "",
       pick(
         lang,
         "请优先检查模型是否可用，以及 kimi-k2.x 这类模型是否需要 temperature=1。",
         "Check first whether the model is available, and whether models like kimi-k2.x require temperature=1.",
+        "Trước hết hãy kiểm tra model có khả dụng không và các model như kimi-k2.x có yêu cầu temperature=1 không.",
       ),
       rawDetail ? upstreamPrefix(rawDetail) : "",
     ].filter(Boolean).join("\n");
   }
 
   return [
-    pick(lang, `${args.label ?? args.service} 测试连接失败。`, `${args.label ?? args.service} connection test failed.`),
+    pick(lang, `${args.label ?? args.service} 测试连接失败。`, `${args.label ?? args.service} connection test failed.`, `Kiểm tra kết nối ${args.label ?? args.service} thất bại.`),
     context,
     "",
     pick(
       lang,
       "请检查 API Key、模型可用性、账号额度，以及协议类型是否匹配该服务商。",
       "Check the API Key, model availability, account quota, and whether the protocol type matches this service.",
+      "Hãy kiểm tra API Key, model khả dụng, hạn mức tài khoản và loại giao thức có phù hợp nhà cung cấp không.",
     ),
     rawDetail ? upstreamPrefix(rawDetail) : "",
   ].filter(Boolean).join("\n");
@@ -2338,6 +2363,7 @@ async function fetchModelsFromServiceBaseUrl(
           lang,
           `服务商返回 ${res.status}: ${body.slice(0, 200)}`,
           `Service returned ${res.status}: ${body.slice(0, 200)}`,
+          `Nhà cung cấp trả về ${res.status}: ${body.slice(0, 200)}`,
         ),
         authFailed: res.status === 401 || res.status === 403,
       };
@@ -2362,6 +2388,7 @@ function buildBearerAuthHeaders(apiKey: string | undefined, lang: StudioLanguage
       lang,
       "API Key 只能包含英文、数字和常见 ASCII 符号，请检查是否误粘贴了中文说明。",
       "API Key may only contain ASCII letters, digits, and common symbols. Check whether you pasted explanatory text by mistake.",
+      "API Key chỉ được chứa chữ cái, chữ số và ký hiệu ASCII thông dụng. Hãy kiểm tra bạn có dán nhầm phần giải thích không.",
     ));
   }
   return { Authorization: `Bearer ${trimmed}` };
@@ -2398,6 +2425,7 @@ async function probeServiceCapabilities(args: {
         lang,
         "API Key 无效或无权访问模型列表。",
         "API Key is invalid or has no access to the model list.",
+        "API Key không hợp lệ hoặc không có quyền truy cập danh sách model.",
       ),
     };
   }
@@ -2416,6 +2444,7 @@ async function probeServiceCapabilities(args: {
           lang,
           "模型列表可访问，但没有发现可用于文本对话的模型。",
           "The model list is reachable, but no model usable for text chat was found.",
+          "Có thể truy cập danh sách model nhưng không tìm thấy model dùng được cho trò chuyện văn bản.",
         ),
       };
     }
@@ -2482,11 +2511,12 @@ async function probeServiceCapabilities(args: {
         lang,
         "无法自动确定模型，请先填写可用模型或提供支持 /models 的服务端点。",
         "Could not determine a model automatically. Fill in an available model first, or provide a service endpoint that supports /models.",
+        "Không thể tự xác định model. Hãy điền model khả dụng hoặc cung cấp endpoint hỗ trợ /models.",
       ),
     };
   }
 
-  let lastError = modelsResponse.error ?? pick(lang, "自动探测失败", "Automatic probing failed");
+  let lastError = modelsResponse.error ?? pick(lang, "自动探测失败", "Automatic probing failed", "自动探测失败");
 
   for (const model of modelCandidates) {
     for (const plan of buildProbePlans(args.preferredApiFormat, args.preferredStream)) {
@@ -2626,6 +2656,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           lang,
           "任务已中断：Studio 服务在任务运行期间重启，任务未能继续。请重新发起。",
           "Task interrupted: the Studio server restarted while this task was running. Please start it again.",
+          "Tác vụ bị gián đoạn: máy chủ Studio khởi động lại khi tác vụ đang chạy. Vui lòng thực hiện lại.",
         ),
         completedAt,
       },
@@ -2862,7 +2893,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         intent: "create_book",
         title: body.title,
         genre: body.genre,
-        language: body.language === "en" ? "en" : body.language === "zh" ? "zh" : undefined,
+        language: body.language === "en" ? "en" : body.language === "vi" ? "vi" : body.language === "zh" ? "zh" : undefined,
         platform: body.platform,
         chapterWordCount: body.chapterWordCount,
         targetChapters: body.targetChapters,
@@ -3003,7 +3034,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         state.loadBookConfig(id),
         buildPipelineConfig({ bookIdForSettings: id }),
       ]);
-      const language = book.language === "en" ? "en" : "zh";
+      const language = book.language === "en" ? "en" : book.language === "vi" ? "vi" : "zh";
       const requestedBrief = typeof body.brief === "string" ? body.brief.trim() : "";
       const response = await runWorkerAgent(
         pipelineConfig.client,
@@ -3013,28 +3044,35 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             role: "system",
             content: language === "en"
               ? [
-                  "You are a fiction editor generating one optional inspiration card for a chapter rewrite.",
-                  "Offer a concrete alternative beat, evidence/action detail, and ending turn that fit the supplied canon.",
-                  "Do not rewrite the chapter, modify canon, or claim any file was changed.",
-                  "Return only a short, readable Markdown card.",
+                  "You help writers refresh a single chapter brief.",
+                  "Given the current chapter, persisted brief, and generated plan, suggest one concrete alternative scene, clue, action detail, or chapter-ending turn.",
+                  "Do not write the whole chapter, do not alter established facts, and do not claim files were modified.",
+                  "Return a concise, readable Markdown inspiration card only.",
                 ].join("\n")
-              : [
-                  "你是小说编辑，只为本章重写生成一张可选的灵感卡。",
-                  "给出一个符合现有设定的具体替代场面、证据或行动细节，以及章尾转折。",
-                  "不要代写整章，不要改写既成事实，也不要声称已经修改文件。",
-                  "只返回简短、可读的 Markdown 灵感卡。",
-                ].join("\n"),
+              : language === "vi"
+                ? [
+                    "Bạn hỗ trợ tác giả làm mới brief cho một chương.",
+                    "Dựa trên chương hiện tại, brief đã lưu và kế hoạch chương do hệ thống tạo, hãy đề xuất một cảnh thay thế, manh mối, chi tiết hành động hoặc cú ngoặt cuối chương thật cụ thể.",
+                    "Không viết thay toàn bộ chương, không thay đổi sự kiện đã xác lập, và không nói rằng file đã được chỉnh sửa.",
+                    "Chỉ trả về một thẻ gợi ý Markdown ngắn gọn, dễ đọc.",
+                  ].join("\n")
+                : [
+                    "你帮助作者刷新单章提示词。",
+                    "根据当前章节、已保存提示词和系统章节计划，给出一个符合现有设定的具体替代场面、证据或行动细节，以及章尾转折。",
+                    "不要代写整章，不要改写既成事实，也不要声称已经修改文件。",
+                    "只返回简短、可读的 Markdown 灵感卡。",
+                  ].join("\n"),
           },
           {
             role: "user",
             content: [
-              language === "en" ? `Book: ${book.title}` : `书名：${book.title}`,
-              language === "en" ? `Chapter: ${num}` : `章节：第${num}章`,
+              language === "en" ? `Book: ${book.title}` : language === "vi" ? `Sách: ${book.title}` : `书名：${book.title}`,
+              language === "en" ? `Chapter: ${num}` : language === "vi" ? `Chương: ${num}` : `章节：第${num}章`,
               requestedBrief || persistedBrief
-                ? `${language === "en" ? "Current user brief" : "当前用户提示"}:\n${requestedBrief || persistedBrief}`
+                ? `${language === "en" ? "Current user brief" : language === "vi" ? "Brief hiện tại của người dùng" : "当前用户提示"}:\n${requestedBrief || persistedBrief}`
                 : "",
-              plan ? `${language === "en" ? "Generated chapter plan" : "系统章节计划"}:\n${plan}` : "",
-              `${language === "en" ? "Current chapter" : "当前章节"}:\n${chapter}`,
+              plan ? `${language === "en" ? "Generated chapter plan" : language === "vi" ? "Kế hoạch chương đã tạo" : "系统章节计划"}:\n${plan}` : "",
+              `${language === "en" ? "Current chapter" : language === "vi" ? "Chương hiện tại" : "当前章节"}:\n${chapter}`,
             ].filter(Boolean).join("\n\n"),
           },
         ],
@@ -3555,6 +3593,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           await currentProjectLanguage(),
           "未检测到可导入的 LLM 环境变量配置，或缺少 INKOS_LLM_API_KEY。",
           "No importable LLM environment variable configuration was detected, or INKOS_LLM_API_KEY is missing.",
+          "Không phát hiện cấu hình biến môi trường LLM để nhập hoặc đang thiếu INKOS_LLM_API_KEY.",
         ),
       }, 400);
     }
@@ -3614,6 +3653,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           await currentProjectLanguage(),
           "Studio 运行时不支持切换到 env；env 只在 CLI/daemon/部署运行时作为覆盖层使用。",
           "The Studio runtime does not support switching to env; env only acts as an override layer in the CLI/daemon/deployment runtimes.",
+          "Runtime Studio không hỗ trợ chuyển sang env; env chỉ là lớp ghi đè trong CLI/daemon/runtime triển khai.",
         ),
       }, 400);
     }
@@ -3676,6 +3716,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           await currentProjectLanguage(),
           "封面 Base URL 必须是有效的 HTTP(S) 地址，且不能包含账号、查询参数或锚点。",
           "Cover Base URL must be a valid HTTP(S) URL without credentials, query parameters, or fragments.",
+          "Base URL bìa phải là địa chỉ HTTP(S) hợp lệ, không chứa thông tin đăng nhập, tham số truy vấn hoặc fragment.",
         ),
       }, 400);
     }
@@ -3714,6 +3755,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           await currentProjectLanguage(),
           "API Key 包含不能放入 HTTP Authorization header 的字符，请只粘贴原始密钥。",
           "API Key contains characters that cannot go into an HTTP Authorization header. Paste only the raw key.",
+          "API Key chứa ký tự không thể đặt trong HTTP Authorization header. Hãy chỉ dán khóa gốc.",
         ),
       }, 400);
     }
@@ -3766,7 +3808,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (!resolvedBaseUrl) {
       return c.json({
         ok: false,
-        error: pick(language, `未知服务商: ${service}`, `Unknown service: ${service}`),
+        error: pick(language, `未知服务商: ${service}`, `Unknown service: ${service}`, `未知服务商: ${service}`),
       }, 400);
     }
 
@@ -3778,7 +3820,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     if (!apiKey?.trim() && !apiKeyOptional) {
       return c.json({
         ok: false,
-        error: pick(language, "API Key 不能为空", "API Key must not be empty"),
+        error: pick(language, "API Key 不能为空", "API Key must not be empty", "API Key 不能为空"),
       }, 400);
     }
 
@@ -3796,7 +3838,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     });
 
     // B12: 升级响应 shape 为 { probe, chat, ... }，同时保留老字段供 UI 过渡期兼容
-    const connectionFailed = pick(language, "连接失败", "Connection failed");
+    const connectionFailed = pick(language, "连接失败", "Connection failed", "连接失败");
     const probeStatus = {
       ok: probe.ok,
       models: probe.models?.length ?? 0,
@@ -3842,6 +3884,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             await currentProjectLanguage(),
             "API Key 只能包含可放进 HTTP Authorization header 的非空白 ASCII 字符；请不要粘贴连接失败提示或诊断文本。",
             "API Key may only contain non-whitespace ASCII characters that fit in an HTTP Authorization header; do not paste connection failure hints or diagnostic text.",
+            "API Key chỉ được chứa ký tự ASCII không trắng phù hợp với HTTP Authorization header; không dán thông báo lỗi kết nối hoặc văn bản chẩn đoán.",
           ),
         }, 400);
       }
@@ -4136,11 +4179,10 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       if (updates.stream !== undefined) {
         existing.llm.stream = updates.stream;
       }
-      if (updates.language === "zh" || updates.language === "en") {
-        existing.language = updates.language;
+      if (updates.language !== undefined) {
+        existing.language = normalizeStudioLanguage(updates.language);
       }
-      const { writeFile: writeFileFs } = await import("node:fs/promises");
-      await writeFileFs(configPath, JSON.stringify(existing, null, 2), "utf-8");
+      await writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
       return c.json({ ok: true });
     } catch (e) {
       return c.json({ error: String(e) }, 500);
@@ -4683,8 +4725,8 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           throw new ApiError(404, "BOOK_NOT_FOUND", `Book not found: ${agentBookId}`);
         }
       }
-      const configLanguage = config.language === "en" ? "en" : "zh";
-      const bookLanguage = activeBookConfig?.language === "en" ? "en" : activeBookConfig?.language === "zh" ? "zh" : undefined;
+      const configLanguage = config.language === "en" ? "en" : config.language === "vi" ? "vi" : "zh";
+      const bookLanguage = activeBookConfig?.language === "en" ? "en" : activeBookConfig?.language === "vi" ? "vi" : activeBookConfig?.language === "zh" ? "zh" : undefined;
       const requestedLanguage = actionPayload?.shortRun?.language ?? actionPayload?.createBook?.language;
       const surfaceLanguage = agentBookId
         ? (bookLanguage ?? configLanguage)
@@ -4726,11 +4768,12 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           const msg = e?.message ?? String(e);
           if (/API key/i.test(msg)) {
             return c.json({
-              error: pick(language, `请先为 ${reqService} 配置 API Key`, `Configure an API Key for ${reqService} first`),
+              error: pick(language, `请先为 ${reqService} 配置 API Key`, `Configure an API Key for ${reqService} first`, `Vui lòng cấu hình API Key cho ${reqService} trước`),
               response: pick(
                 language,
                 `请先在模型配置中为 ${reqService} 填写 API Key，然后再试。`,
                 `Fill in an API Key for ${reqService} in the model settings, then try again.`,
+                `Trước hết hãy điền API Key cho ${reqService} trong cài đặt model rồi thử lại.`,
               ),
             }, 400);
           }
@@ -4837,6 +4880,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             surfaceLanguage,
             "当前会话已有一个生产任务在运行，请等它完成，或先用停止按钮结束它，再发起新任务。",
             "A production task is already running in this session. Wait for it to finish, or stop it first, then start a new task.",
+            "Phiên này đang có tác vụ sản xuất chạy. Hãy đợi hoàn tất hoặc dừng tác vụ trước khi tạo tác vụ mới.",
           );
           return c.json({
             error: { code: "PRODUCTION_TASK_ALREADY_RUNNING", message },
@@ -4919,7 +4963,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             createdBookId = resolveCreatedBookIdFromToolExecs([exec]);
             if (createdBookId) {
               if (!await completeBookExists(join(root, "books", createdBookId))) {
-                const message = pick(surfaceLanguage, "创作工具返回了建书结果，但磁盘上的书籍工件不完整。", "The creation tool returned a book result, but the on-disk book artifact is incomplete.");
+                const message = pick(surfaceLanguage, "创作工具返回了建书结果，但磁盘上的书籍工件不完整。", "The creation tool returned a book result, but the on-disk book artifact is incomplete.", "创作工具返回了建书结果，但磁盘上的书籍工件不完整。");
                 bookCreateStatus.set(createdBookId, { status: "error", error: message });
                 broadcast("book:error", { bookId: createdBookId, sessionId: bookSession.sessionId, error: message });
                 throw new ApiError(500, "BOOK_CREATION_INCOMPLETE", message);
@@ -4944,7 +4988,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             }
           }
 
-          const responseText = exec.result ?? pick(surfaceLanguage, "已完成。", "Done.");
+          const responseText = exec.result ?? pick(surfaceLanguage, "已完成。", "Done.", "已完成。");
           const responseForUser = suppressManualTextForTool(exec) ? "" : responseText;
           // 指令已在任务开始时写入 transcript，这里只补助手工具消息。
           await appendSessionMessagesUnlessDeleted(root, bookSession.sessionId, [
@@ -5242,6 +5286,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
           language,
           "模型未返回文本内容。请检查协议类型（chat/responses）、流式开关或上游服务兼容性。",
           "The model returned no text content. Check the protocol type (chat/responses), the streaming switch, or upstream service compatibility.",
+          "Model không trả về nội dung văn bản. Hãy kiểm tra loại giao thức (chat/responses), chế độ streaming hoặc khả năng tương thích của dịch vụ nguồn.",
         );
         if (resolveCreatedBookIdFromToolExecs(collectedToolExecs)) {
           await finalizeCreatedBook();
@@ -5281,12 +5326,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         return c.json({
           error: {
             code: "AGENT_BUSY",
-            message: pick(language, "正在处理中，请等待当前操作完成", "Still processing. Wait for the current operation to finish"),
+            message: pick(language, "正在处理中，请等待当前操作完成", "Still processing. Wait for the current operation to finish", "Đang xử lý. Hãy đợi thao tác hiện tại hoàn tất"),
           },
           response: pick(
             language,
             "正在处理中，请等待当前操作完成后再发送。",
             "Still processing. Wait for the current operation to finish before sending again.",
+            "Đang xử lý. Hãy đợi thao tác hiện tại hoàn tất rồi gửi lại.",
           ),
         }, 429);
       }
@@ -5302,15 +5348,15 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
   // --- Language setup ---
 
   app.post("/api/v1/project/language", async (c) => {
-    const { language } = await c.req.json<{ language: "zh" | "en" }>();
+    const { language } = await c.req.json<{ language?: unknown }>();
     const configPath = join(root, "inkos.json");
     try {
       const raw = await readFile(configPath, "utf-8");
       const existing = JSON.parse(raw);
-      existing.language = language;
-      const { writeFile: writeFileFs } = await import("node:fs/promises");
-      await writeFileFs(configPath, JSON.stringify(existing, null, 2), "utf-8");
-      return c.json({ ok: true, language });
+      const normalized = normalizeStudioLanguage(language);
+      existing.language = normalized;
+      await writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
+      return c.json({ ok: true, language: normalized });
     } catch (e) {
       return c.json({ error: String(e) }, 500);
     }
@@ -5730,7 +5776,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
         ...(updates.chapterWordCount !== undefined ? { chapterWordCount: Number(updates.chapterWordCount) } : {}),
         ...(updates.targetChapters !== undefined ? { targetChapters: Number(updates.targetChapters) } : {}),
         ...(updates.status !== undefined ? { status: updates.status as typeof book.status } : {}),
-        ...(updates.language !== undefined ? { language: updates.language as "zh" | "en" } : {}),
+        ...(updates.language !== undefined ? { language: updates.language as "zh" | "en" | "vi" } : {}),
         updatedAt: new Date().toISOString(),
       };
       await state.saveBookConfig(id, updated);
@@ -6066,7 +6112,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       targetChapters: body.targetChapters ?? 100,
       chapterWordCount: body.chapterWordCount ?? 3000,
       fanficMode: (body.mode ?? "canon") as "canon",
-      ...(body.language ? { language: body.language as "zh" | "en" } : {}),
+      ...(body.language ? { language: body.language as "zh" | "en" | "vi" } : {}),
       createdAt: now,
       updatedAt: now,
     };
@@ -6133,7 +6179,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
     } catch {
       return c.json({ error: `Parent book "${body.parentBookId}" not found` }, 404);
     }
-    const language = (body.language ?? parent.language) as "zh" | "en" | undefined;
+    const language = (body.language ?? parent.language) as "zh" | "en" | "vi" | undefined;
     const now = new Date().toISOString();
     const bookConfig = buildStudioBookConfig({
       title: body.title,
@@ -6188,7 +6234,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       platform: body.platform,
       targetChapters: body.targetChapters,
       chapterWordCount: body.chapterWordCount,
-      ...(body.language ? { language: body.language as "zh" | "en" } : {}),
+      ...(body.language ? { language: body.language as "zh" | "en" | "vi" } : {}),
     }, now);
     const bookId = bookConfig.id;
     if (!bookId) {

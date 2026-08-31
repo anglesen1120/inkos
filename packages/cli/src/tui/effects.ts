@@ -292,20 +292,35 @@ export function intentToBadge(intent: string, locale: TuiLocale = resolveTuiLoca
         patch_chapter_text: " PATCH ",
         edit_truth: " TRUTH ",
       }
-    : {
-        write_next: " 写作 ",
-        revise_chapter: " 修订 ",
-        rewrite_chapter: " 重写 ",
-        update_focus: " 焦点 ",
-        explain_status: " 状态 ",
-        explain_failure: " 调试 ",
-        pause_book: " 暂停 ",
-        list_books: " 作品 ",
-        select_book: " 选择 ",
-        rename_entity: " 改名 ",
-        patch_chapter_text: " 修补 ",
-        edit_truth: " 真相 ",
-      };
+    : locale === "vi-VN"
+      ? {
+          write_next: " VIẾT ",
+          revise_chapter: " SỬA ",
+          rewrite_chapter: " VIẾT LẠI ",
+          update_focus: " TRỌNG TÂM ",
+          explain_status: " TRẠNG THÁI ",
+          explain_failure: " GỠ LỖI ",
+          pause_book: " TẠM DỪNG ",
+          list_books: " SÁCH ",
+          select_book: " CHỌN ",
+          rename_entity: " ĐỔI TÊN ",
+          patch_chapter_text: " SỬA ĐOẠN ",
+          edit_truth: " SỰ THẬT ",
+        }
+      : {
+          write_next: " 写作 ",
+          revise_chapter: " 修订 ",
+          rewrite_chapter: " 重写 ",
+          update_focus: " 焦点 ",
+          explain_status: " 状态 ",
+          explain_failure: " 调试 ",
+          pause_book: " 暂停 ",
+          list_books: " 作品 ",
+          select_book: " 选择 ",
+          rename_entity: " 改名 ",
+          patch_chapter_text: " 修补 ",
+          edit_truth: " 真相 ",
+        };
   const backgrounds: Record<string, string> = {
     write_next: bgMagenta,
     revise_chapter: bgBlue,
@@ -474,6 +489,39 @@ export function buildStyledHelpSections(locale: TuiLocale = resolveTuiLocale()):
     ];
   }
 
+  if (locale === "vi-VN") {
+    return [
+      {
+        title: "Viết",
+        commands: [
+          ["/write", "Chạy đầy đủ pipeline viết chương tiếp theo"],
+          ["/rewrite <n>", "Viết lại chương N từ đầu"],
+        ],
+      },
+      {
+        title: "Điều hướng",
+        commands: [
+          ["/books", "Yêu cầu agent liệt kê tác phẩm"],
+          ["/status", "Xem trạng thái hiện tại"],
+        ],
+      },
+      {
+        title: "Điều khiển",
+        commands: [
+          ["/focus <text>", "Cập nhật trọng tâm hiện tại"],
+        ],
+      },
+      {
+        title: "Phiên",
+        commands: [
+          ["/clear", "Xóa màn hình hiện tại"],
+          ["/help", "Hiển thị trợ giúp này"],
+          ["/quit", "Thoát InkOS TUI"],
+        ],
+      },
+    ];
+  }
+
   return [
     {
       title: "写作",
@@ -514,25 +562,43 @@ function buildHelpFooter(locale: TuiLocale): { readonly title: string; readonly 
     };
   }
 
+  if (locale === "vi-VN") {
+    return {
+      title: "Dùng slash command để thực hiện hành động:",
+      examples: ['"/write" "/rewrite 3" "/pause" "/rename Lin Jin => Zhang San"'],
+    };
+  }
+
   return {
     title: "执行动作请使用 slash 命令：",
     examples: ['"/write" "/rewrite 3" "/pause" "/rename 林烬 => 张三"'],
   };
 }
 
-function localizeThemeLabel(label: string, locale: TuiLocale): string {
+export function localizeThemeLabel(label: string, locale: TuiLocale): string {
   if (locale === "en") {
     return label;
   }
 
-  const labels: Record<string, string> = {
-    thinking: "思考中",
-    writing: "写作中",
-    auditing: "审计中",
-    revising: "修订中",
-    planning: "规划中",
-    composing: "生成中",
-    loading: "加载中",
+  const labels: Record<Exclude<TuiLocale, "en">, Record<string, string>> = {
+    "zh-CN": {
+      thinking: "思考中",
+      writing: "写作中",
+      auditing: "审计中",
+      revising: "修订中",
+      planning: "规划中",
+      composing: "生成中",
+      loading: "加载中",
+    },
+    "vi-VN": {
+      thinking: "đang suy nghĩ",
+      writing: "đang viết",
+      auditing: "đang kiểm duyệt",
+      revising: "đang chỉnh sửa",
+      planning: "đang lập kế hoạch",
+      composing: "đang tạo",
+      loading: "đang tải",
+    },
   };
-  return labels[label] ?? label;
+  return labels[locale][label] ?? label;
 }

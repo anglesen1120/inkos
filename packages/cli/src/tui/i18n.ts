@@ -1,6 +1,6 @@
 import type { ChatDepth } from "./chat-depth.js";
 
-export type TuiLocale = "zh-CN" | "en";
+export type TuiLocale = "zh-CN" | "en" | "vi-VN";
 
 export interface TuiCopy {
   readonly locale: TuiLocale;
@@ -201,6 +201,77 @@ const EN: TuiCopy = {
   },
 };
 
+const VI_VN: TuiCopy = {
+  locale: "vi-VN",
+  labels: {
+    project: "Dự án",
+    book: "Tác phẩm",
+    depth: "Độ sâu",
+    session: "Phiên",
+    messageCount: (count) => `${count} tin nhắn`,
+    stage: "Giai đoạn",
+    mode: "Chế độ",
+    model: "Model",
+    error: "Lỗi",
+    recent: "Gần đây",
+    pending: "Chờ xác nhận",
+    draft: "Bản nháp",
+    ready: "sẵn sàng",
+    none: "không có",
+    notConfigured: "chưa cấu hình",
+    unknown: "không rõ",
+  },
+  modeLabels: {
+    auto: "tự động",
+    semi: "bán tự động",
+    manual: "thủ công",
+  },
+  composer: {
+    placeholder: "Yêu cầu InkOS viết, chỉnh sửa hoặc giải thích…",
+    emptyConversation: "Hãy bắt đầu bằng cách nói InkOS cần làm gì.",
+    helper: "Enter để gửi • /new • /short • /play • /cover • /write • /confirm • /model • /depth • /help",
+    submitting: "Đang gửi…",
+    failed: "Yêu cầu trước thất bại",
+    ready: "Sẵn sàng",
+  },
+  notes: {
+    help: "Lệnh: /new (sách), /short, /play, /cover, /write, /confirm, /cancel, /model [model], /status, /clear, /depth, /quit. Dùng ngôn ngữ tự nhiên cho các trao đổi và yêu cầu sáng tác khác.",
+    status: (stage, mode) => `Trạng thái: ${stage} (${mode}).`,
+    config: "Chưa hỗ trợ /config tương tác trong bảng điều khiển Ink. Hãy dùng inkos config set-global.",
+    depthSet: (depthLabel) => `Đã đặt độ sâu suy nghĩ thành ${depthLabel}.`,
+    modelCurrent: (modelLabel) => `Model hiện tại: ${modelLabel}.`,
+    modelSet: (model) => `Đã đổi model của phiên TUI hiện tại thành ${model}.`,
+    newBookGuide: "Bắt đầu xây dựng sách mới. Hãy mô tả ý tưởng của bạn — thể loại, thế giới, nhân vật chính, xung đột cốt lõi hoặc bất kỳ chi tiết nào. AI sẽ hướng dẫn và gọi năng lực tạo sách khi có đủ thông tin.",
+    noLlmConfig: "Không tìm thấy cấu hình LLM.",
+    setupProvider: "Hãy cấu hình nhà cung cấp API trước.",
+  },
+  roles: {
+    user: "Bạn",
+    assistant: "InkOS",
+    system: "Hệ thống",
+  },
+  activity: {
+    thinking: "đang suy nghĩ",
+    checking: "đang kiểm tra",
+    writing: "đang viết",
+    reviewing: "đang duyệt",
+    updating: "đang cập nhật",
+  },
+  stageLabels: {
+    completed: "đã hoàn tất",
+    failed: "thất bại",
+    blocked: "bị chặn",
+    waitingHuman: "đang chờ quyết định của bạn",
+    pausedByUser: "đã tạm dừng bởi người dùng",
+    readyToContinue: "sẵn sàng tiếp tục",
+  },
+  depthLabels: {
+    light: "nhẹ",
+    normal: "bình thường",
+    deep: "sâu",
+  },
+};
+
 export function resolveTuiLocale(
   env: NodeJS.ProcessEnv = process.env,
   preferredLanguage?: string,
@@ -220,7 +291,9 @@ export function resolveTuiLocale(
 }
 
 export function getTuiCopy(locale: TuiLocale): TuiCopy {
-  return locale === "en" ? EN : ZH_CN;
+  if (locale === "en") return EN;
+  if (locale === "vi-VN") return VI_VN;
+  return ZH_CN;
 }
 
 export function normalizeStageLabel(label: string, copy: TuiCopy): string {
@@ -278,6 +351,10 @@ function normalizeLocale(value: string | undefined): TuiLocale | undefined {
 
   if (normalized.startsWith("en")) {
     return "en";
+  }
+
+  if (normalized === "vi" || normalized.startsWith("vi-") || normalized.startsWith("vi_")) {
+    return "vi-VN";
   }
 
   return undefined;

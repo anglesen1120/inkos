@@ -307,88 +307,215 @@ ${VALID_EN_BODY}
     const messages = callArgs[2] as ReadonlyArray<{ role: string; content: string }>;
     const systemMsg = messages.find((m) => m.role === "system");
     const userMsg = messages.find((m) => m.role === "user");
-
     // English system prompt markers
     expect(systemMsg?.content).toContain("editor-in-chief");
     expect(systemMsg?.content).toContain("Output format (strict)");
     expect(systemMsg?.content).not.toContain("你是这本小说的创作总编");
+    expect(systemMsg?.content).not.toContain("tổng biên tập sáng tác");
+    expect(systemMsg?.content).not.toContain("## Output format (bắt buộc)");
+    expect(systemMsg?.content).toContain("## Hook ledger for this chapter");
+    expect(systemMsg?.content).toContain("open/advance/resolve/defer");
+    expect(systemMsg?.content).toContain("hook_id");
 
     // English user template markers
     expect(userMsg?.content).toContain("# Chapter 1 memo request");
     expect(userMsg?.content).toContain("Last screen of previous chapter");
     expect(userMsg?.content).toContain("Golden opening chapter: yes");
-    expect(userMsg?.content).not.toContain("# 第 1 章 memo 请求");
-
-    // English golden-opening guidance appended for ch ≤ 3
-    expect(userMsg?.content).toContain("Golden Opening Guidance");
-    expect(userMsg?.content).toContain("Chapter 1");
-    expect(userMsg?.content).not.toContain("黄金三章规划指引");
+    expect(userMsg?.content).not.toContain("# Yêu cầu memo chương 1");
+    expect(userMsg?.content).not.toContain("Chương mở đầu vàng");
+    expect(userMsg?.content).not.toContain("## Hướng dẫn mở đầu vàng");
   });
+  it("uses Vietnamese prompts end-to-end when book.language is vi", async () => {
+    const VALID_VI_BODY = `
+## Scene and length budget
+- Scene 1 (600 từ): vào hiện trường Cổng Bảy, kiểm tra vết xước ổ khóa và loại trừ hao mòn tự nhiên.
+- Scene 2 (800 từ): đối chiếu mốc thời gian camera với nhật ký cửa, hình thành chuỗi bằng chứng kiểm chứng được.
+- Scene 3 (600 từ): rời đi cùng bằng chứng, sức ép của kẻ chủ mưu siết lại nhưng chưa lộ diện.
 
-  it("returns a degraded memo instead of throwing when all 3 attempts fail", async () => {
+## Current task
+Nhân vật chính vào hiện trường Cổng Bảy, so sánh vết xước ổ khóa với mốc thời gian camera, đóng đinh "bị động tay chân" từ phỏng đoán thành bằng chứng hiện trường.
+
+## What the reader is waiting for right now
+1) Độc giả đang chờ Cổng Bảy có gì bất thường.
+2) Chương này hồi đáp trọn vẹn, đóng đinh bằng chứng hiện trường.
+
+## To pay off / to keep buried
+- Pay off: bất thường Cổng Bảy → đóng đinh bằng chứng hiện trường
+- Keep buried: kẻ chủ mưu → giữ đến chương 20
+
+## What the slow / transitional beats carry
+Không áp dụng - chương áp lực bằng chứng, không có đoạn chuyển tiếp.
+
+## Three-question check on the key choice
+- Lựa chọn quan trọng nhất của nhân vật chính:
+  - Vì sao chọn vậy? Manh mối chỉ còn lại một đường này.
+  - Có khớp lợi ích hiện tại không? Có.
+  - Có khớp nhân vật không? Có.
+
+## Required end-of-chapter change
+- Thay đổi thông tin: nhân vật chính nắm bằng chứng hiện trường.
+
+## Hook ledger for this chapter
+advance:
+- H03 "bất thường Cổng Bảy" → từ pressured → near_payoff (chương này đóng đinh)
+defer:
+- H07 "kẻ chủ mưu" → giữ đến chương 20
+
+## Do not
+- Không để kẻ địch đột ngột hạ trí.
+- Không trực tiếp vạch mặt kẻ chủ mưu.
+`.trim();
+
+    const validViRaw = `# Chapter 1 memo
+
+## Chapter goal
+Đóng đinh Cổng Bảy bị động tay chân thành bằng chứng hiện trường
+
+## Thread refs
+- H03
+
+${VALID_VI_BODY}
+`;
+
+    const chatSpy = vi.spyOn(llmProvider, "chatCompletion").mockResolvedValue({
+      content: validViRaw,
+      usage: ZERO_USAGE,
+    } as unknown as Awaited<ReturnType<typeof llmProvider.chatCompletion>>);
+
+    const viBook = { ...makeBook(), language: "vi" as const };
+    await Promise.all([
+      writeFile(join(bookDir, "story/subplot_board.md"), "| S001 | Tuyến chìa khóa | Mai | 1 | 3 | 0 | active | Đang truy dấu | 1 chương |\n", "utf-8"),
+      writeFile(join(bookDir, "story/emotional_arcs.md"), "| Mai | 0 | Căng thẳng | Mất chìa khóa | 8 | Leo thang |\n", "utf-8"),
+      writeFile(join(bookDir, "story/book_rules.md"), [
+        "---",
+        "version: \"1.0\"",
+        "protagonist:",
+        "  name: Mai",
+        "  personalityLock: [điềm tĩnh]",
+        "  behavioralConstraints: [không bỏ rơi đồng đội]",
+        "genreLock:",
+        "  primary: mystery",
+        "  forbidden: [xuyên không]",
+        "prohibitions: [không tiết lộ bí mật]",
+        "fanficMode: canon",
+        "---",
+      ].join("\n"), "utf-8"),
+    ]);
+    const result = await makePlanner().planChapter({
+      book: viBook,
+      bookDir,
+      chapterNumber: 1,
+    });
+
+    expect(chatSpy).toHaveBeenCalledTimes(1);
+    expect(result.memo.chapter).toBe(1);
+    expect(result.memo.goal).toBe("Đóng đinh Cổng Bảy bị động tay chân thành bằng...");
+    expect(result.memo.threadRefs).toEqual(["H03"]);
+
+    const callArgs = chatSpy.mock.calls[0]!;
+    const messages = callArgs[2] as ReadonlyArray<{ role: string; content: string }>;
+    const systemMsg = messages.find((m) => m.role === "system");
+    const userMsg = messages.find((m) => m.role === "user");
+
+    // Vietnamese system prompt: parser-recognized English structural headings,
+    // Vietnamese prose, no Chinese fallback.
+    expect(systemMsg?.content).toContain("tổng biên tập sáng tác");
+    expect(systemMsg?.content).toContain("## Output format (bắt buộc)");
+    expect(systemMsg?.content).toContain("## Scene and length budget");
+    expect(systemMsg?.content).toContain("## Current task");
+    expect(systemMsg?.content).toContain("## Hook ledger for this chapter");
+    expect(systemMsg?.content).toContain("## Do not");
+    expect(systemMsg?.content).toContain("open/advance/resolve/defer");
+    expect(systemMsg?.content).toContain("hook_id");
+    expect(systemMsg?.content).toContain("tiếng Việt tự nhiên");
+    expect(systemMsg?.content).not.toContain("你是这本小说的创作总编");
+    expect(systemMsg?.content).not.toContain("editor-in-chief");
+
+    expect(userMsg?.content).toContain("# Yêu cầu memo chương 1");
+    expect(userMsg?.content).toContain("## Màn hình cuối chương trước (trích)");
+    expect(userMsg?.content).toContain("Chương mở đầu vàng: có");
+    expect(userMsg?.content).toContain("## Hướng dẫn mở đầu vàng — Chương 1");
+    expect(userMsg?.content).toContain("Tuyến phụ đang hoạt động");
+    expect(userMsg?.content).toContain("Cung cảm xúc gần đây");
+    expect(userMsg?.content).not.toContain("活跃支线");
+    expect(userMsg?.content).not.toContain("近期情感线");
+    expect(userMsg?.content).not.toContain("# 第 1 章 memo 请求");
+    expect(userMsg?.content).not.toContain("黄金三章规划指引");
+    expect(userMsg?.content).toContain("(chưa có tóm tắt chương trước)");
+    expect(userMsg?.content).toContain("(không tìm thấy hàng nhân vật chính — hãy kiểm tra character_matrix.md)");
+    expect(userMsg?.content).toContain("(chưa có đối thủ rõ ràng xuất hiện)");
+    expect(userMsg?.content).toContain("(chưa có cộng tác viên rõ ràng xuất hiện)");
+    expect(userMsg?.content).toContain("Nhân vật chính Mai / khóa tính cách: điềm tĩnh / ràng buộc hành vi: không bỏ rơi đồng đội");
+    expect(userMsg?.content).toContain("Điều cấm của sách");
+    expect(userMsg?.content).toContain("Khóa thể loại: mystery / không pha trộn: xuyên không");
+    expect(userMsg?.content).toContain("Chế độ đồng nhân: canon");
+    expect(userMsg?.content).not.toContain("暂无前章摘要");
+    expect(userMsg?.content).not.toContain("未找到主角行");
+    expect(userMsg?.content).not.toContain("暂无明确对手登场");
+    expect(userMsg?.content).not.toContain("暂无明确协作者登场");
+    expect(userMsg?.content).not.toContain("本书禁忌");
+    expect(userMsg?.content).not.toContain("题材锁");
+  });
+  it("uses a Vietnamese goal for a sparse vi book when memo generation degrades", async () => {
     vi.spyOn(llmProvider, "chatCompletion").mockResolvedValue({
       content: "permanently broken",
       usage: ZERO_USAGE,
     } as unknown as Awaited<ReturnType<typeof llmProvider.chatCompletion>>);
+    await Promise.all([
+      writeFile(join(bookDir, "story/author_intent.md"), "(文件尚未创建)", "utf-8"),
+      writeFile(join(bookDir, "story/current_focus.md"), "(文件尚未创建)", "utf-8"),
+      writeFile(join(bookDir, "story/volume_outline.md"), "(文件尚未创建)", "utf-8"),
+    ]);
 
     const result = await makePlanner().planChapter({
-      book: makeBook(),
+      book: { ...makeBook(), language: "vi" as const },
       bookDir,
       chapterNumber: 2,
     });
 
-    expect(result.memo.chapter).toBe(2);
-    expect(result.memo.goal.length).toBeGreaterThan(0);
-    expect(result.memo.body).toContain("## 当前任务");
+    const expectedGoal = "Tiếp tục chương 2 với trọng tâm tự sự rõ ràng.";
+    expect(result.intent.goal).toBe(expectedGoal);
+    expect(result.memo.goal).toBe(expectedGoal);
+    expect(result.intentMarkdown).toContain(expectedGoal);
+    expect(result.intentMarkdown).not.toContain("(文件尚未创建)");
+    // Parser contract: structural headings stay in the recognized zh/en form;
+    // the fallback body prose is Vietnamese.
+    expect(result.memo.body).toContain("## Current task");
+    expect(result.memo.body).toContain("## Scene and length budget");
+    expect(result.memo.body).toContain("## What the slow / transitional beats carry");
+    expect(result.memo.body).toContain("## Hook ledger for this chapter");
     expect(result.memo.body).toContain("## Planner warning");
-    expect(result.intentMarkdown).toContain("Planner warning");
+    expect(result.memo.body).toContain("lần");
+    expect(result.memo.body).toContain("từ");
+    expect(result.memo.body).not.toContain("## Nhiệm vụ hiện tại");
   });
 
-  // Phase hotfix 5: planner.intent.mustAvoid must come from the Phase 5
-  // authoritative loader (story_frame frontmatter), not from raw
-  // book_rules.md — for new-layout books the legacy file is just a shim.
-  it("derives intent.mustAvoid from outline/story_frame.md frontmatter (new layout)", async () => {
-    // Replace book_rules.md with a Phase 5 compat shim (no YAML, just pointer)
-    // and put the authoritative YAML on outline/story_frame.md.
-    const storyDir = join(bookDir, "story");
-    await mkdir(join(storyDir, "outline"), { recursive: true });
-    await writeFile(
-      join(storyDir, "outline/story_frame.md"),
-      [
-        "---",
-        "version: \"1.0\"",
-        "protagonist:",
-        "  name: 阿泽",
-        "  personalityLock: []",
-        "  behavioralConstraints: []",
-        "prohibitions:",
-        "  - 禁止主角降智",
-        "  - 禁止神化反派",
-        "---",
-        "",
-        "## 主题与基调",
-        "调查与压制。",
-      ].join("\n"),
-      "utf-8",
-    );
-    await writeFile(
-      join(storyDir, "book_rules.md"),
-      "# 本书规则（兼容指针——已废弃）\n\n> 本文件仅为外部读取保留。",
-      "utf-8",
-    );
-
-    vi.spyOn(llmProvider, "chatCompletion").mockResolvedValue({
-      content: validMemoRaw(2),
-      usage: ZERO_USAGE,
-    } as unknown as Awaited<ReturnType<typeof llmProvider.chatCompletion>>);
+  it("feeds Vietnamese retry feedback back into the user prompt for vi books", async () => {
+    const chatSpy = vi.spyOn(llmProvider, "chatCompletion")
+      .mockResolvedValueOnce({
+        content: "no memo sections here",
+        usage: ZERO_USAGE,
+      } as unknown as Awaited<ReturnType<typeof llmProvider.chatCompletion>>)
+      .mockResolvedValueOnce({
+        content: validMemoRaw(4),
+        usage: ZERO_USAGE,
+      } as unknown as Awaited<ReturnType<typeof llmProvider.chatCompletion>>);
 
     const result = await makePlanner().planChapter({
-      book: makeBook(),
+      book: { ...makeBook(), language: "vi" as const },
       bookDir,
-      chapterNumber: 2,
+      chapterNumber: 4,
     });
 
-    expect(result.intent.mustAvoid).toContain("禁止主角降智");
-    expect(result.intent.mustAvoid).toContain("禁止神化反派");
+    expect(chatSpy).toHaveBeenCalledTimes(2);
+    expect(result.memo.chapter).toBe(4);
+    expect(result.memo.isGoldenOpening).toBe(true);
+
+    const retryArgs = chatSpy.mock.calls[1]!;
+    const retryMessages = retryArgs[2] as ReadonlyArray<{ role: string; content: string }>;
+    const userMsg = retryMessages.find((m) => m.role === "user");
+    expect(userMsg?.content).toContain("## Lỗi từ đầu ra trước đó");
+    expect(userMsg?.content).toContain("Sửa lại và phát hành lại.");
+    expect(userMsg?.content).not.toContain("上次输出的错误");
   });
 });

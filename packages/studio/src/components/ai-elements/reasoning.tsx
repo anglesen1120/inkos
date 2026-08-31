@@ -26,6 +26,7 @@ import {
 import { Streamdown } from "streamdown";
 
 import { Shimmer } from "./shimmer";
+import { tr } from "@/lib/app-language";
 
 interface ReasoningContextValue {
   isStreaming: boolean;
@@ -156,12 +157,12 @@ export type ReasoningTriggerProps = ComponentProps<
 
 const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   if (isStreaming || duration === 0) {
-    return <Shimmer duration={1}>Thinking...</Shimmer>;
+    return <Shimmer duration={1}>{tr("思考中...", "Thinking...", "Đang suy nghĩ...")}</Shimmer>;
   }
   if (duration === undefined) {
-    return <p>Thought for a few seconds</p>;
+    return <p>{tr("思考了几秒", "Thought for a few seconds", "Đã suy nghĩ vài giây")}</p>;
   }
-  return <p>Thought for {duration} seconds</p>;
+  return <p>{tr(`思考了 ${duration} 秒`, `Thought for ${duration} seconds`, `Đã suy nghĩ ${duration} giây`)}</p>;
 };
 
 export const ReasoningTrigger = memo(

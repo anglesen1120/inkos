@@ -152,6 +152,42 @@ Use evidence chains; do not turn clues into generic atmosphere.
 
 当前 InkOS 将 LLM 配置分成两条清晰路径：**Studio 用可视化服务配置**，**CLI / daemon / 部署环境支持 env 覆盖**。两者不会互相污染。
 
+#### 越南语界面与创作
+
+界面区域设置与内容生成语言是两个独立选项：TUI 界面使用 `vi-VN`，创作与生成使用 `vi`。在当前目录初始化：
+
+```bash
+inkos init --lang vi
+```
+
+也可以新建带名称的越南语项目：
+
+```bash
+inkos init <project-name> --lang vi
+cd <project-name>
+```
+
+启动越南语 TUI（POSIX shell）：
+
+```bash
+INKOS_TUI_LOCALE=vi-VN inkos tui
+```
+
+Windows PowerShell：
+
+```powershell
+$env:INKOS_TUI_LOCALE = "vi-VN"
+inkos tui
+```
+
+Windows 命令提示符（Command Prompt）：
+
+```bat
+set INKOS_TUI_LOCALE=vi-VN && inkos tui
+```
+
+未指定语言时仍沿用现有默认行为（通常为 `zh`，也可能由全局设置或题材默认值决定）。`INKOS_TUI_LOCALE=vi-VN` 只切换 TUI 界面，不会把生成语言改为 `vi`；请在初始化或相关创作命令中单独指定 `--lang vi`。
+
 #### 方式一：Studio 服务配置（推荐）
 
 适合本地写作、Web 工作台和可视化管理。

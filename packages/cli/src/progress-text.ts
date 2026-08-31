@@ -67,19 +67,27 @@ export function formatImportCompletionLines(
   },
 ): string[] {
   return [
-    language === "en" ? "Import complete:" : "导入完成：",
+    language === "en" ? "Import complete:" : language === "vi" ? "Nhập hoàn tất:" : "导入完成：",
     language === "en"
       ? `  Chapters imported: ${result.importedCount}`
-      : `  已导入章节：${result.importedCount}`,
+      : language === "vi"
+        ? `  Số chương đã nhập: ${result.importedCount}`
+        : `  已导入章节：${result.importedCount}`,
     language === "en"
       ? `  Total length: ${result.totalCountLabel}`
-      : `  总长度：${result.totalCountLabel}`,
+      : language === "vi"
+        ? `  Tổng độ dài: ${result.totalCountLabel}`
+        : `  总长度：${result.totalCountLabel}`,
     language === "en"
       ? `  Next chapter number: ${result.nextChapter}`
-      : `  下一章编号：${result.nextChapter}`,
+      : language === "vi"
+        ? `  Số chương tiếp theo: ${result.nextChapter}`
+        : `  下一章编号：${result.nextChapter}`,
     "",
     language === "en"
       ? `Run "inkos write next ${result.bookId}" to continue writing.`
-      : `运行 "inkos write next ${result.bookId}" 继续写作。`,
+      : language === "vi"
+        ? `Chạy "inkos write next ${result.bookId}" để tiếp tục viết.`
+        : `运行 "inkos write next ${result.bookId}" 继续写作。`,
   ];
 }

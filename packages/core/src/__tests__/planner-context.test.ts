@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   composeCurrentArcProse,
   extractCollaboratorRows,
   extractOpponentRows,
   extractProtagonistRow,
+  formatRecentSummaries,
   formatRelevantThreads,
+  readBookRules,
 } from "../agents/planner-context.js";
 
 // Real column layouts match the production truth-file schemas under story/.
@@ -70,6 +75,15 @@ describe("composeCurrentArcProse reads chapter from emotional_arcs column 1", ()
     const prose = composeCurrentArcProse("", "", 1);
     expect(prose).toContain("暂无 arc 数据");
   });
+
+  it("renders Vietnamese arc labels and empty state for Vietnamese planners", () => {
+    const prose = composeCurrentArcProse(SUBPLOT_BOARD_SAMPLE, EMOTIONAL_ARCS_SAMPLE, 39, "vi");
+
+    expect(prose).toContain("Tuyến phụ đang hoạt động");
+    expect(prose).toContain("Cung cảm xúc gần đây");
+    expect(prose).not.toContain("活跃支线");
+    expect(composeCurrentArcProse("", "", 1, "vi")).toContain("không có dữ liệu arc");
+  });
 });
 
 describe("extractProtagonistRow", () => {
@@ -100,6 +114,10 @@ describe("extractProtagonistRow", () => {
   });
 });
 
+  it("renders the empty protagonist fallback in Vietnamese", () => {
+    expect(extractProtagonistRow("", "vi")).toBe("(không tìm thấy hàng nhân vật chính — hãy kiểm tra character_matrix.md)");
+  });
+
 describe("extractOpponentRows / extractCollaboratorRows", () => {
   it("picks opponents by 与主角关系 semantic keywords", () => {
     const rows = extractOpponentRows(CHARACTER_MATRIX_SAMPLE, 3);
@@ -111,6 +129,59 @@ describe("extractOpponentRows / extractCollaboratorRows", () => {
     const rows = extractCollaboratorRows(CHARACTER_MATRIX_SAMPLE, 3);
     expect(rows).toContain("修锁老师傅");
     expect(rows).not.toContain("草帽男");
+  });
+});
+
+  it("renders sparse opponent and collaborator fallbacks in Vietnamese", () => {
+    expect(extractOpponentRows("", 3, "vi")).toBe("(chưa có đối thủ rõ ràng xuất hiện)");
+    expect(extractCollaboratorRows("", 3, "vi")).toBe("(chưa có cộng tác viên rõ ràng xuất hiện)");
+  });
+
+describe("English sparse renderer compatibility", () => {
+  it("retains the historical Chinese synthesized defaults for English", () => {
+    expect(formatRecentSummaries("", 1, 3, "en")).toBe("（暂无前章摘要）");
+    expect(extractProtagonistRow("", "en")).toBe("（未找到主角行——请检查 character_matrix.md）");
+    expect(extractOpponentRows("", 3, "en")).toBe("（暂无明确对手登场）");
+    expect(extractCollaboratorRows("", 3, "en")).toBe("（暂无明确协作者登场）");
+  });
+});
+
+describe("readBookRules English compatibility", () => {
+  it("preserves historical wrappers, punctuation, separators, and the raw body", async () => {
+    const bookDir = await mkdtemp(join(tmpdir(), "planner-rules-en-"));
+    const storyDir = join(bookDir, "story");
+    await mkdir(storyDir, { recursive: true });
+    await writeFile(join(storyDir, "book_rules.md"), [
+      "---", "version: \"1.0\"", "protagonist:", "  name: Lin",
+      "  personalityLock: [calm, stubborn]",
+      "  behavioralConstraints: [never abandons allies, verifies evidence]",
+      "genreLock:", "  primary: mystery", "  forbidden: [time travel, magic]",
+      "prohibitions: [do not reveal the culprit]", "fanficMode: canon", "---", "",
+      "## Narrative voice", "Keep the original rule body byte-for-byte.",
+    ].join("\n"), "utf-8");
+
+    try {
+      expect(await readBookRules(storyDir, "en")).toBe([
+        "- 主角 Lin / 人设锁：calm、stubborn / 行为约束：never abandons allies、verifies evidence",
+        "- 本书禁忌：", "  - do not reveal the culprit",
+        "- 题材锁：mystery / 禁止混入：time travel、magic", "- 同人模式：canon", "",
+        "## Narrative voice", "Keep the original rule body byte-for-byte.",
+      ].join("\n"));
+    } finally {
+      await rm(bookDir, { recursive: true, force: true });
+    }
+  });
+});
+
+
+describe("formatRecentSummaries", () => {
+  it("renders the empty summary fallback and synthesized header in Vietnamese", () => {
+    expect(formatRecentSummaries("", 1, 3, "vi")).toBe("(chưa có tóm tắt chương trước)");
+
+    const rendered = formatRecentSummaries("| 1 | Mở đầu | Mai | Mất chìa khóa | Bị theo dõi | H01 | Căng thẳng | Mở đầu |", 2, 3, "vi");
+    expect(rendered).toContain("| Chương | Tiêu đề | Nhân vật xuất hiện | Sự kiện chính | Thay đổi trạng thái | Diễn biến phục bút | Sắc thái cảm xúc | Loại chương |");
+    expect(rendered).toContain("| 1 | Mở đầu | Mai | Mất chìa khóa | Bị theo dõi | H01 | Căng thẳng | Mở đầu |");
+    expect(rendered).not.toContain("| 章节 | 标题 |");
   });
 });
 

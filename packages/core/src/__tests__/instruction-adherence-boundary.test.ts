@@ -7,7 +7,7 @@ import type { SessionKind } from "../interaction/session.js";
 // when INKOS_LIVE_E2E=1 is set.
 type PromptCase = readonly [
   name: string,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
   sessionKind: SessionKind,
   bookId: string | null,
   options: AgentSystemPromptOptions | undefined,

@@ -8,23 +8,23 @@ export type ModelCommand =
 export function classifyLocalTuiCommand(input: string): LocalTuiCommand | undefined {
   const value = input.trim();
 
-  if (/^\/help$/i.test(value) || /^(help|帮助)$/i.test(value)) {
+  if (/^\/help$/i.test(value) || /^(help|帮助|trợ giúp|tro giup)$/i.test(value)) {
     return "help";
   }
 
-  if (/^\/status$/i.test(value) || /^(status|状态)$/i.test(value)) {
+  if (/^\/status$/i.test(value) || /^(status|状态|trạng thái|trang thai)$/i.test(value)) {
     return "status";
   }
 
-  if (/^\/clear$/i.test(value) || /^清屏$/i.test(value)) {
+  if (/^\/clear$/i.test(value) || /^(清屏|xóa|xoa)$/i.test(value)) {
     return "clear";
   }
 
-  if (/^\/config$/i.test(value) || /^(config|配置)$/i.test(value)) {
+  if (/^\/config$/i.test(value) || /^(config|配置|cấu hình|cau hinh)$/i.test(value)) {
     return "config";
   }
 
-  if (/^\/quit$/i.test(value) || /^\/exit$/i.test(value) || /^(quit|exit|bye|退出)$/i.test(value)) {
+  if (/^\/quit$/i.test(value) || /^\/exit$/i.test(value) || /^(quit|exit|bye|退出|thoát|thoat)$/i.test(value)) {
     return "quit";
   }
 
@@ -39,19 +39,37 @@ export function parseDepthCommand(input: string): ChatDepth | undefined {
   }
 
   const chineseMatch = input.trim().match(/^\/?深度\s+(浅|轻量|标准|普通|深|深入)$/);
-  if (!chineseMatch?.[1]) {
+  if (chineseMatch?.[1]) {
+    switch (chineseMatch[1]) {
+      case "浅":
+      case "轻量":
+        return "light";
+      case "深":
+      case "深入":
+        return "deep";
+      case "标准":
+      case "普通":
+      default:
+        return "normal";
+    }
+  }
+
+  const vietnameseMatch = input.trim().toLowerCase().match(/^\/?(?:độ sâu|do sau)\s+(nhẹ|nhe|bình thường|binh thuong|thường|thuong|sâu|sau)$/);
+  if (!vietnameseMatch?.[1]) {
     return undefined;
   }
 
-  switch (chineseMatch[1]) {
-    case "浅":
-    case "轻量":
+  switch (vietnameseMatch[1]) {
+    case "nhẹ":
+    case "nhe":
       return "light";
-    case "深":
-    case "深入":
+    case "sâu":
+    case "sau":
       return "deep";
-    case "标准":
-    case "普通":
+    case "bình thường":
+    case "binh thuong":
+    case "thường":
+    case "thuong":
     default:
       return "normal";
   }

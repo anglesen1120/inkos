@@ -146,7 +146,7 @@ describe("WriterAgent", () => {
           readonly activeOverrides: readonly [];
         };
         readonly lengthSpec: ReturnType<typeof buildLengthSpec>;
-        readonly language?: "zh" | "en";
+        readonly language?: "zh" | "en" | "vi";
         readonly externalContext?: string;
       }): string;
     }).buildGovernedUserPrompt({
@@ -1179,6 +1179,132 @@ describe("WriterAgent", () => {
       expect(creativePrompt).toContain("## English Variance Brief");
       expect(creativePrompt).toContain("High-frequency phrases");
       expect(creativePrompt).toContain("Scene obligation");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+  it("logs and prompts in Vietnamese for Vietnamese books", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-writer-vi-test-"));
+    const bookDir = join(root, "book");
+    const storyDir = join(bookDir, "story");
+    const { logger, infos } = createCaptureLogger();
+    await mkdir(storyDir, { recursive: true });
+
+    await Promise.all([
+      writeFile(join(storyDir, "story_bible.md"), "# Story Bible\n", "utf-8"),
+      writeFile(join(storyDir, "volume_outline.md"), "# Volume Outline\n", "utf-8"),
+      writeFile(join(storyDir, "style_guide.md"), "# Style Guide\n", "utf-8"),
+      writeFile(join(storyDir, "current_state.md"), "# Trạng thái hiện tại\n", "utf-8"),
+      writeFile(join(storyDir, "pending_hooks.md"), "# Nút thắt\n", "utf-8"),
+      writeFile(join(storyDir, "chapter_summaries.md"), "# Tóm tắt chương\n", "utf-8"),
+      writeFile(join(storyDir, "subplot_board.md"), "# Bảng phụ\n", "utf-8"),
+      writeFile(join(storyDir, "emotional_arcs.md"), "# Cung cảm xúc\n", "utf-8"),
+      writeFile(join(storyDir, "character_matrix.md"), "# Ma trận nhân vật\n", "utf-8"),
+    ]);
+
+    const agent = new WriterAgent({
+      client: {
+        provider: "openai",
+        apiFormat: "chat",
+        stream: false,
+        defaults: {
+          temperature: 0.7,
+          maxTokens: 4096,
+          thinkingBudget: 0,
+          extra: {},
+        },
+      },
+      model: "test-model",
+      projectRoot: root,
+      logger,
+    });
+
+    const chatSpy = vi.spyOn(WriterAgent.prototype as never, "chat" as never)
+      .mockResolvedValueOnce({
+        content: [
+          "=== CHAPTER_TITLE ===",
+          "Đêm trước thử thách",
+          "",
+          "=== CHAPTER_CONTENT ===",
+          "Lâm Việt dừng bước trước ngôi miếu đổ nát, nhớ về món nợ xưa của sư môn.",
+          "",
+          "=== PRE_WRITE_CHECK ===",
+          "- ok",
+        ].join("\n"),
+        usage: ZERO_USAGE,
+      })
+      .mockResolvedValueOnce({
+        content: "=== OBSERVATIONS ===\n- quan sát",
+        usage: ZERO_USAGE,
+      })
+      .mockResolvedValueOnce({
+        content: [
+          "=== POST_SETTLEMENT ===",
+          "| Biến động nút thắt | mentor-oath tiến triển | đồng bộ nút thắt |",
+          "",
+          "=== UPDATED_STATE ===",
+          "Trạng thái",
+          "",
+          "=== UPDATED_HOOKS ===",
+          "Nút thắt",
+          "",
+          "=== CHAPTER_SUMMARY ===",
+          "| 1 | Đêm trước thử thách | Lâm Việt | Lâm Việt nhớ món nợ sư môn | Quyết tâm sâu hơn | mentor-oath advanced | tense | setup |",
+          "",
+          "=== UPDATED_SUBPLOTS ===",
+          "Bảng phụ",
+          "",
+          "=== UPDATED_EMOTIONAL_ARCS ===",
+          "Cung cảm xúc",
+          "",
+          "=== UPDATED_CHARACTER_MATRIX ===",
+          "Ma trận nhân vật",
+        ].join("\n"),
+        usage: ZERO_USAGE,
+      });
+
+    try {
+      await agent.writeChapter({
+        book: {
+          id: "vi-book",
+          title: "Chuyện kể",
+          platform: "tomato",
+          genre: "xuanhuan",
+          status: "active",
+          targetChapters: 120,
+          chapterWordCount: 2200,
+          language: "vi",
+          createdAt: "2026-03-23T00:00:00.000Z",
+          updatedAt: "2026-03-23T00:00:00.000Z",
+        },
+        bookDir,
+        chapterNumber: 1,
+        ...createGovernedWriterInput(1),
+        lengthSpec: buildLengthSpec(220, "vi"),
+      });
+
+      expect(infos).toEqual(expect.arrayContaining([
+        "Giai đoạn 1: viết nội dung chương 1",
+        "Giai đoạn 2: chốt trạng thái chương 1 (17 từ)",
+        "Giai đoạn 2a: thu thập sự kiện chương 1",
+        "Giai đoạn 2b: ghi nhận quan sát vào các tệp dữ liệu gốc",
+      ]));
+      const creativeMessages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ content: string }> | undefined;
+      const creativeSystem = creativeMessages?.[0]?.content ?? "";
+      const creative = creativeMessages?.[1]?.content ?? "";
+      expect(creativeSystem).toContain("Hãy viết toàn bộ văn xuôi, lời thoại và suy nghĩ bằng tiếng Việt tự nhiên");
+      expect(creativeSystem).toContain("dùng xưng hô phù hợp quan hệ và bối cảnh, dấu câu tiếng Việt chuẩn");
+      expect(creativeSystem).toContain("không dịch tên riêng hay mã kỹ thuật");
+      expect(creativeSystem).toContain("Hồ sơ và nội dung thể loại dùng chung bên dưới có giá trị bắt buộc. Hãy áp dụng theo đúng ý nghĩa; giữ nguyên nội dung gốc và không dịch hoặc viết lại các quy tắc cơ chế và tên riêng.");
+      expect(creativeSystem).toContain("同质吞噬衰减公式：收益 = 基础值 × max(0.3, 1 - 0.15×(N-1))");
+      expect(creativeSystem).toContain("Reuse supplied hook ids and narrative promises");
+      expect(creative).toContain("Viết chương 1");
+      expect(creative).toContain("## Bối cảnh đã chọn");
+      expect(creative).toContain("## Ngăn xếp quy tắc");
+      expect(creative).toContain("Rào chắn bắt buộc");
+      expect(creative).toContain("Độ dài mục tiêu: 220 từ");
+      expect(creative).toContain("Chỉ xuất ba khối PRE_WRITE_CHECK, CHAPTER_TITLE và CHAPTER_CONTENT");
+      expect(creative).not.toContain("请续写");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -421,7 +421,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
                         className="w-full flex items-center gap-2 pl-9 pr-2 py-1.5 text-[13px] text-muted-foreground/50 hover:text-foreground transition-colors"
                       >
                         <Plus size={12} />
-                        <span>{tr("新建会话", "New session")}</span>
+                        <span>{tr("新建会话", "New session", "Phiên mới")}</span>
                       </button>
                     </div>
                   </Collapse>
@@ -546,7 +546,7 @@ export function Sidebar({ nav, activePage, sse, t }: {
                     className="w-full flex items-center gap-2 pl-2 pr-2 py-1.5 text-[13px] text-muted-foreground/50 hover:text-foreground transition-colors"
                   >
                     <Plus size={12} />
-                    <span>{tr("新建会话", "New session")}</span>
+                    <span>{tr("新建会话", "New session", "Phiên mới")}</span>
                   </button>
                 </div>
               </Collapse>
@@ -730,7 +730,7 @@ function getSessionLabel(session: { sessionId: string; title: string | null; mes
     const oneLine = firstUserMsg.replace(/\s+/g, " ");
     return oneLine.length > 20 ? `${oneLine.slice(0, 20)}…` : oneLine;
   }
-  return tr("新会话", "New session");
+  return tr("新会话", "New session", "Phiên mới");
 }
 
 function formatRelativeTime(sessionId: string): string {

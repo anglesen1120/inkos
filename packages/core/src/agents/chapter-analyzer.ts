@@ -78,9 +78,20 @@ export class ChapterAnalyzerAgent extends BaseAgent {
       memorySelection.summaries,
       resolvedLanguage,
     );
-    const governedMemoryBlocks = input.contextPackage
+    const rawGovernedMemoryBlocks = input.contextPackage
       ? buildGovernedMemoryEvidenceBlocks(input.contextPackage, resolvedLanguage)
       : undefined;
+    const governedMemoryBlocks = rawGovernedMemoryBlocks && resolvedLanguage === "vi"
+      ? {
+          hookDebtBlock: this.localizeGovernedEvidenceBlock(rawGovernedMemoryBlocks.hookDebtBlock),
+          hooksBlock: this.localizeGovernedEvidenceBlock(rawGovernedMemoryBlocks.hooksBlock),
+          summariesBlock: this.localizeGovernedEvidenceBlock(rawGovernedMemoryBlocks.summariesBlock),
+          volumeSummariesBlock: this.localizeGovernedEvidenceBlock(rawGovernedMemoryBlocks.volumeSummariesBlock),
+          titleHistoryBlock: this.localizeGovernedEvidenceBlock(rawGovernedMemoryBlocks.titleHistoryBlock),
+          moodTrailBlock: this.localizeGovernedEvidenceBlock(rawGovernedMemoryBlocks.moodTrailBlock),
+          canonBlock: this.localizeGovernedEvidenceBlock(rawGovernedMemoryBlocks.canonBlock),
+        }
+      : rawGovernedMemoryBlocks;
     const hooksWorkingSet = governedMode && input.contextPackage
       ? buildGovernedHookWorkingSet({
           hooksMarkdown: hooks,
@@ -131,13 +142,17 @@ export class ChapterAnalyzerAgent extends BaseAgent {
       bibleBlock: !governedMode && storyBible !== this.missingFilePlaceholder(resolvedLanguage)
         ? resolvedLanguage === "en"
           ? `\n## Story Bible\n${storyBible}\n`
-          : `\n## 世界观设定\n${storyBible}\n`
+          : resolvedLanguage === "vi"
+            ? `\n## Bối cảnh thế giới\n${storyBible}\n`
+            : `\n## 世界观设定\n${storyBible}\n`
         : "",
       outlineOrControlBlock: reducedControlBlock || (
         volumeOutline !== this.missingFilePlaceholder(resolvedLanguage)
           ? resolvedLanguage === "en"
             ? `\n## Volume Outline\n${volumeOutline}\n`
-            : `\n## 卷纲\n${volumeOutline}\n`
+            : resolvedLanguage === "vi"
+              ? `\n## Dàn ý tập\n${volumeOutline}\n`
+              : `\n## 卷纲\n${volumeOutline}\n`
           : ""
       ),
       hooksBlock: governedMemoryBlocks?.hooksBlock
@@ -145,7 +160,9 @@ export class ChapterAnalyzerAgent extends BaseAgent {
           hooksWorkingSet !== this.missingFilePlaceholder(resolvedLanguage)
             ? resolvedLanguage === "en"
               ? `\n## Current Hooks\n${hooksWorkingSet}\n`
-              : `\n## 当前伏笔池\n${hooksWorkingSet}\n`
+              : resolvedLanguage === "vi"
+                ? `\n## Các tuyến gợi mở hiện tại\n${hooksWorkingSet}\n`
+                : `\n## 当前伏笔池\n${hooksWorkingSet}\n`
             : ""
         ),
       summariesBlock: governedMemoryBlocks?.summariesBlock
@@ -153,24 +170,32 @@ export class ChapterAnalyzerAgent extends BaseAgent {
           chapterSummaries !== this.missingFilePlaceholder(resolvedLanguage)
             ? resolvedLanguage === "en"
               ? `\n## Existing Chapter Summaries\n${chapterSummaries}\n`
-              : `\n## 已有章节摘要\n${chapterSummaries}\n`
+              : resolvedLanguage === "vi"
+                ? `\n## Tóm tắt các chương trước\n${chapterSummaries}\n`
+                : `\n## 已有章节摘要\n${chapterSummaries}\n`
             : ""
         ),
       volumeSummariesBlock: governedMemoryBlocks?.volumeSummariesBlock ?? "",
       subplotBlock: subplotWorkingSet !== this.missingFilePlaceholder(resolvedLanguage)
         ? resolvedLanguage === "en"
           ? `\n## Current Subplot Board\n${subplotWorkingSet}\n`
-          : `\n## 当前支线进度板\n${subplotWorkingSet}\n`
+          : resolvedLanguage === "vi"
+            ? `\n## Bảng tiến độ tuyến truyện phụ hiện tại\n${subplotWorkingSet}\n`
+            : `\n## 当前支线进度板\n${subplotWorkingSet}\n`
         : "",
       emotionalBlock: emotionalWorkingSet !== this.missingFilePlaceholder(resolvedLanguage)
         ? resolvedLanguage === "en"
           ? `\n## Current Emotional Arcs\n${emotionalWorkingSet}\n`
-          : `\n## 当前情感弧线\n${emotionalWorkingSet}\n`
+          : resolvedLanguage === "vi"
+            ? `\n## Các cung cảm xúc hiện tại\n${emotionalWorkingSet}\n`
+            : `\n## 当前情感弧线\n${emotionalWorkingSet}\n`
         : "",
       matrixBlock: matrixWorkingSet !== this.missingFilePlaceholder(resolvedLanguage)
         ? resolvedLanguage === "en"
           ? `\n## Current Character Matrix\n${matrixWorkingSet}\n`
-          : `\n## 当前角色交互矩阵\n${matrixWorkingSet}\n`
+          : resolvedLanguage === "vi"
+            ? `\n## Ma trận nhân vật hiện tại\n${matrixWorkingSet}\n`
+            : `\n## 当前角色交互矩阵\n${matrixWorkingSet}\n`
         : "",
     });
 
@@ -187,17 +212,13 @@ export class ChapterAnalyzerAgent extends BaseAgent {
     const canonicalContent = chapterContent;
     const canonicalWordCount = countChapterLength(canonicalContent, countingMode);
 
-    // If LLM didn't return a title, use the one from input or derive from chapter number
-    if (
-      chapterTitle
-      && (
-        output.title === this.defaultChapterTitle(chapterNumber, resolvedLanguage)
-        || output.title === `第${chapterNumber}章`
-      )
-    ) {
+    // If the LLM didn't return a title, use the one from input or derive from chapter number.
+    const parserFallbackTitle = output.title === this.defaultChapterTitle(chapterNumber, resolvedLanguage)
+      || output.title === `第${chapterNumber}章`;
+    if (parserFallbackTitle) {
       return {
         ...output,
-        title: chapterTitle,
+        title: chapterTitle || this.defaultChapterTitle(chapterNumber, resolvedLanguage),
         content: canonicalContent,
         wordCount: canonicalWordCount,
       };
@@ -215,7 +236,7 @@ export class ChapterAnalyzerAgent extends BaseAgent {
     genreProfile: GenreProfile,
     genreBody: string,
     bookRulesBody: string,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): string {
     if (language === "en") {
       const numericalBlock = genreProfile.numericalSystem
@@ -326,6 +347,116 @@ Updated character matrix (one ## section per character, bullet-list fields):
 4. Information boundaries in the character matrix must stay exact: each character only knows what they directly witnessed or learned.`;
     }
 
+    if (language === "vi") {
+      const numericalBlock = genreProfile.numericalSystem
+        ? "\n- Thể loại này có hệ thống số/tài nguyên; UPDATED_LEDGER phải ghi mọi thay đổi tài nguyên trong chương."
+        : "\n- Thể loại này không có hệ thống số; để UPDATED_LEDGER trống.";
+      return `【LANGUAGE OVERRIDE】MỌI nội dung mô tả và phản hồi phải bằng tiếng Việt tự nhiên. Giữ nguyên các marker === TAG ===.
+
+Bạn là chuyên viên phân tích tính liên tục của tiểu thuyết. Nhiệm vụ của bạn là phân tích nội dung một chương đã hoàn thành, trích xuất mọi thay đổi trạng thái và cập nhật các tệp theo dõi.
+
+## Chế độ làm việc
+
+Bạn không viết văn xuôi mới mà phân tích nội dung hiện có. Bạn cần:
+1. Đọc kỹ nội dung chương và trích xuất mọi thông tin quan trọng.
+2. Cập nhật tăng dần dựa trên các tệp theo dõi hiện tại, không dựng lại từ đầu.
+3. Giữ định dạng đầu ra hoàn toàn giống pipeline writer.
+
+## Các khía cạnh cần phân tích
+
+Trích xuất các thông tin sau từ nội dung chương:
+- Nhân vật xuất hiện, rời đi hoặc thay đổi trạng thái (bị thương, đột phá, qua đời, v.v.).
+- Di chuyển địa điểm và chuyển cảnh.
+- Vật phẩm hoặc tài nguyên nhận được và tiêu hao.
+- Gợi mở được thiết lập, phát triển và hoàn tất.
+- Diễn biến cung cảm xúc.
+- Tiến triển tuyến truyện phụ.
+- Thay đổi quan hệ giữa các nhân vật và ranh giới thông tin mới.
+
+## Thông tin sách
+
+- Tiêu đề: ${book.title}
+- Thể loại: ${genreProfile.name} (${book.genre})
+- Nền tảng: ${book.platform}
+${numericalBlock}
+
+## Hướng dẫn thể loại
+
+${genreBody}
+
+${bookRulesBody ? `## Quy tắc riêng của sách\n\n${bookRulesBody}` : ""}
+
+## Định dạng đầu ra (phải tuân thủ nghiêm ngặt)
+
+Dùng dấu phân cách === TAG === chính xác như dưới đây, hoàn toàn giống pipeline writer:
+
+=== CHAPTER_TITLE ===
+(Trích xuất hoặc suy luận tiêu đề chương. Chỉ xuất nội dung tiêu đề.)
+
+=== CHAPTER_CONTENT ===
+(Lặp lại nguyên văn nội dung chương, không viết lại.)
+
+=== PRE_WRITE_CHECK ===
+(Để trống trong chế độ phân tích.)
+
+=== POST_SETTLEMENT ===
+(Để trống trong chế độ phân tích.)
+
+=== UPDATED_STATE ===
+Thẻ trạng thái đã cập nhật dưới dạng bảng Markdown, phản ánh trạng thái cuối chương:
+| Trường | Giá trị |
+| --- | --- |
+| Chương hiện tại | {chapter_number} |
+| Địa điểm hiện tại | ... |
+| Trạng thái nhân vật chính | ... |
+| Mục tiêu hiện tại | ... |
+| Ràng buộc hiện tại | ... |
+| Liên minh hiện tại | ... |
+| Xung đột hiện tại | ... |
+
+=== UPDATED_LEDGER ===
+(Nếu thể loại có hệ thống số: xuất bảng sổ cái tài nguyên đầy đủ đã cập nhật. Nếu không, để trống.)
+
+=== UPDATED_HOOKS ===
+Nhóm gợi mở đã cập nhật dưới dạng bảng Markdown, gồm trạng thái mới nhất của mọi gợi mở đã biết:
+| hook_id | start_chapter | type | status | last_advanced_chapter | expected_payoff | payoff_timing | notes |
+
+=== CHAPTER_SUMMARY ===
+Một hàng duy nhất trong bảng Markdown:
+| Chương | Tiêu đề | Nhân vật | Sự kiện chính | Thay đổi trạng thái | Diễn biến gợi mở | Sắc thái | Loại chương |
+
+=== UPDATED_SUBPLOTS ===
+Bảng tiến độ tuyến truyện phụ đã cập nhật (bảng Markdown).
+
+=== UPDATED_EMOTIONAL_ARCS ===
+Các cung cảm xúc đã cập nhật (bảng Markdown).
+
+=== UPDATED_CHARACTER_MATRIX ===
+Ma trận nhân vật đã cập nhật (mỗi nhân vật là một mục ##, các trường dùng danh sách gạch đầu dòng):
+
+## Tên nhân vật
+- **Vai trò**: nhân vật chính / phản diện / đồng minh / phụ / được nhắc đến
+- **Nhãn**: các nhãn nhận dạng cốt lõi
+- **Tương phản**: chi tiết riêng biệt phá vỡ kỳ vọng
+- **Lời thoại**: tóm tắt phong cách nói
+- **Tính cách**: các nét tính cách cốt lõi
+- **Động cơ**: động lực căn bản
+- **Hiện tại**: mục tiêu tức thời trong chương này
+- **Quan hệ**: NhânVậtKhác(loại/Ch#) | ...
+- **Đã biết**: điều nhân vật này biết (chỉ những gì trực tiếp chứng kiến hoặc được kể)
+- **Chưa biết**: điều nhân vật này không biết
+
+(Lặp lại cho từng nhân vật. Thêm nhân vật mới và cập nhật tăng dần các nhân vật hiện có.)
+
+## Quy tắc then chốt
+
+1. UPDATED_STATE và UPDATED_HOOKS phải được cập nhật tăng dần dựa trên các tệp theo dõi hiện tại.
+2. Mọi thay đổi thực tế trong chương phải xuất hiện trong tệp theo dõi tương ứng.
+3. Không bỏ sót thay đổi tài nguyên, địa điểm, quan hệ hoặc thông tin.
+4. Ranh giới thông tin trong ma trận nhân vật phải chính xác: mỗi nhân vật chỉ biết điều họ trực tiếp chứng kiến hoặc được kể.
+5. Nhãn, lời giải thích và bảng phải dùng tiếng Việt; JSON keys, rule IDs và marker máy đọc giữ nguyên.`;
+    }
+
     const numericalBlock = genreProfile.numericalSystem
       ? `\n- 本题材有数值/资源体系，你必须在 UPDATED_LEDGER 中追踪正文中出现的所有资源变动`
       : `\n- 本题材无数值系统，UPDATED_LEDGER 留空`;
@@ -434,7 +565,7 @@ ${bookRulesBody ? `## 本书规则\n\n${bookRulesBody}` : ""}
   }
 
   private buildUserPrompt(params: {
-    readonly language: "zh" | "en";
+    readonly language: "zh" | "en" | "vi";
     readonly chapterNumber: number;
     readonly chapterContent: string;
     readonly chapterTitle?: string;
@@ -455,55 +586,25 @@ ${bookRulesBody ? `## 本书规则\n\n${bookRulesBody}` : ""}
     readonly outlineOrControlBlock: string;
   }): string {
     if (params.language === "en") {
-      const titleLine = params.chapterTitle
-        ? `Chapter Title: ${params.chapterTitle}\n`
-        : "";
-
-      const ledgerBlock = params.ledger
-        ? `\n## Current Resource Ledger\n${params.ledger}\n`
-        : "";
-
-      return `Analyze chapter ${params.chapterNumber} and update all tracking files.
-${titleLine}
-## Chapter Content
-
-${params.chapterContent}
-
-## Current State
-${params.currentState}
-${ledgerBlock}
-${params.hooksBlock}${params.volumeSummariesBlock}${params.subplotBlock}${params.emotionalBlock}${params.matrixBlock}${params.summariesBlock}${params.outlineOrControlBlock}${params.bibleBlock}
-
-Please return the result strictly in the === TAG === format.`;
+      const titleLine = params.chapterTitle ? `Chapter Title: ${params.chapterTitle}\n` : "";
+      const ledgerBlock = params.ledger ? `\n## Current Resource Ledger\n${params.ledger}\n` : "";
+      return `Analyze chapter ${params.chapterNumber} and update all tracking files.\n${titleLine}\n## Chapter Content\n\n${params.chapterContent}\n\n## Current State\n${params.currentState}${ledgerBlock}\n${params.hooksBlock}${params.volumeSummariesBlock}${params.subplotBlock}${params.emotionalBlock}${params.matrixBlock}${params.summariesBlock}${params.outlineOrControlBlock}${params.bibleBlock}\n\nPlease return the result strictly in the === TAG === format.`;
     }
-
-    const titleLine = params.chapterTitle
-      ? `章节标题：${params.chapterTitle}\n`
-      : "";
-
-    const ledgerBlock = params.ledger
-      ? `\n## 当前资源账本\n${params.ledger}\n`
-      : "";
-
-    return `请分析第${params.chapterNumber}章正文，更新所有追踪文件。
-${titleLine}
-## 正文内容
-
-${params.chapterContent}
-
-## 当前状态卡
-${params.currentState}
-${ledgerBlock}
-${params.hooksBlock}${params.volumeSummariesBlock}${params.subplotBlock}${params.emotionalBlock}${params.matrixBlock}${params.summariesBlock}${params.outlineOrControlBlock}${params.bibleBlock}
-
-请严格按照 === TAG === 格式输出分析结果。`;
+    if (params.language === "vi") {
+      const titleLine = params.chapterTitle ? `Tiêu đề chương: ${params.chapterTitle}\n` : "";
+      const ledgerBlock = params.ledger ? `\n## Sổ tài nguyên hiện tại\n${params.ledger}\n` : "";
+      return `Hãy phân tích chương ${params.chapterNumber} và cập nhật mọi tệp theo dõi.\n${titleLine}\n## Nội dung chương\n\n${params.chapterContent}\n\n## Trạng thái hiện tại\n${params.currentState}${ledgerBlock}\n${params.hooksBlock}${params.volumeSummariesBlock}${params.subplotBlock}${params.emotionalBlock}${params.matrixBlock}${params.summariesBlock}${params.outlineOrControlBlock}${params.bibleBlock}\n\nHãy trả về đúng định dạng === TAG ===; giữ nguyên mọi marker và trường dữ liệu.`;
+    }
+    const titleLine = params.chapterTitle ? `章节标题：${params.chapterTitle}\n` : "";
+    const ledgerBlock = params.ledger ? `\n## 当前资源账本\n${params.ledger}\n` : "";
+    return `请分析第${params.chapterNumber}章正文，更新所有追踪文件。\n${titleLine}\n## 正文内容\n\n${params.chapterContent}\n\n## 当前状态卡\n${params.currentState}${ledgerBlock}\n${params.hooksBlock}${params.volumeSummariesBlock}${params.subplotBlock}${params.emotionalBlock}${params.matrixBlock}${params.summariesBlock}${params.outlineOrControlBlock}${params.bibleBlock}\n\n请严格按照 === TAG === 格式输出分析结果。`;
   }
 
   private buildReducedControlBlock(
     chapterIntent: string,
     contextPackage: ContextPackage,
     ruleStack: RuleStack,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): string {
     const selectedContext = contextPackage.selectedContext
       .map((entry) => `- ${entry.source}: ${entry.reason}${entry.excerpt ? ` | ${entry.excerpt}` : ""}`)
@@ -514,8 +615,8 @@ ${params.hooksBlock}${params.volumeSummariesBlock}${params.subplotBlock}${params
         .join("\n")
       : "- none";
 
-    return language === "en"
-      ? `\n## Chapter Control Inputs (compiled by Planner/Composer)
+    if (language === "en") {
+      return `\n## Chapter Control Inputs (compiled by Planner/Composer)
 ${chapterIntent}
 
 ### Selected Context
@@ -527,8 +628,26 @@ ${selectedContext || "- none"}
 - Diagnostic rules: ${ruleStack.sections.diagnostic.join(", ") || "(none)"}
 
 ### Active Overrides
-${overrides}\n`
-      : `\n## 本章控制输入（由 Planner/Composer 编译）
+${overrides}\n`;
+    }
+
+    if (language === "vi") {
+      return `\n## Dữ liệu điều khiển chương (do Planner/Composer biên soạn)
+${chapterIntent}
+
+### Ngữ cảnh đã chọn
+${selectedContext || "- không có"}
+
+### Ngăn xếp quy tắc
+- Rào chắn cứng: ${ruleStack.sections.hard.join(", ") || "(không có)"}
+- Ràng buộc mềm: ${ruleStack.sections.soft.join(", ") || "(không có)"}
+- Quy tắc chẩn đoán: ${ruleStack.sections.diagnostic.join(", ") || "(không có)"}
+
+### Ghi đè đang áp dụng
+${overrides}\n`;
+    }
+
+    return `\n## 本章控制输入（由 Planner/Composer 编译）
 ${chapterIntent}
 
 ### 已选上下文
@@ -543,6 +662,23 @@ ${selectedContext || "- none"}
 ${overrides}\n`;
   }
 
+  private localizeGovernedEvidenceBlock(block: string | undefined) {
+    const headings: Readonly<Record<string, string>> = {
+      "Hook Debt Briefs": "Tóm tắt nợ gợi mở",
+      "已选伏笔证据": "Bằng chứng gợi mở đã chọn",
+      "已选章节摘要证据": "Bằng chứng tóm tắt chương đã chọn",
+      "已选卷级摘要证据": "Bằng chứng tóm tắt tập đã chọn",
+      "近期标题历史": "Lịch sử tiêu đề gần đây",
+      "近期情绪/章节类型轨迹": "Diễn biến cảm xúc / loại chương gần đây",
+      "正典约束证据": "Bằng chứng chính sử",
+    };
+
+    return block?.replace(
+      /(?<=## )(Hook Debt Briefs|已选伏笔证据|已选章节摘要证据|已选卷级摘要证据|近期标题历史|近期情绪\/章节类型轨迹|正典约束证据)/g,
+      (heading) => headings[heading] ?? heading,
+    );
+  }
+
   private buildMemoryGoal(chapterTitle: string | undefined, chapterContent: string): string {
     return [chapterTitle ?? "", chapterContent]
       .filter((part) => part.trim().length > 0)
@@ -550,7 +686,9 @@ ${overrides}\n`;
   }
 
   private findOutlineNode(volumeOutline: string, chapterNumber: number): string | undefined {
-    if (!volumeOutline || volumeOutline === this.missingFilePlaceholder("zh") || volumeOutline === this.missingFilePlaceholder("en")) {
+    if (!volumeOutline || (["zh", "en", "vi"] as const).some(
+      (language) => volumeOutline === this.missingFilePlaceholder(language),
+    )) {
       return undefined;
     }
 
@@ -579,7 +717,7 @@ ${overrides}\n`;
       mood: string;
       chapterType: string;
     }>,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): string {
     if (summaries.length === 0) {
       return this.missingFilePlaceholder(language);
@@ -590,10 +728,15 @@ ${overrides}\n`;
           "| Chapter | Title | Characters | Key Events | State Changes | Hook Activity | Mood | Chapter Type |",
           "| --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
-      : [
-          "| 章节 | 标题 | 出场人物 | 关键事件 | 状态变化 | 伏笔动态 | 情绪基调 | 章节类型 |",
-          "| --- | --- | --- | --- | --- | --- | --- | --- |",
-        ];
+      : language === "vi"
+        ? [
+            "| Chương | Tiêu đề | Nhân vật | Sự kiện chính | Thay đổi trạng thái | Diễn biến gợi mở | Sắc thái | Loại chương |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+          ]
+        : [
+            "| 章节 | 标题 | 出场人物 | 关键事件 | 状态变化 | 伏笔动态 | 情绪基调 | 章节类型 |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+          ];
 
     const rows = summaries.map((summary) => [
       summary.chapter,
@@ -616,7 +759,7 @@ ${overrides}\n`;
     return value.replace(/\|/g, "\\|").replace(/\n/g, "<br>");
   }
 
-  private async readFileOrDefault(path: string, language: "zh" | "en"): Promise<string> {
+  private async readFileOrDefault(path: string, language: "zh" | "en" | "vi"): Promise<string> {
     try {
       return await readFile(path, "utf-8");
     } catch {
@@ -624,11 +767,15 @@ ${overrides}\n`;
     }
   }
 
-  private missingFilePlaceholder(language: "zh" | "en"): string {
-    return language === "en" ? "(file not created yet)" : "(文件尚未创建)";
+  private missingFilePlaceholder(language: "zh" | "en" | "vi"): string {
+    if (language === "en") return "(file not created yet)";
+    if (language === "vi") return "(tệp chưa được tạo)";
+    return "(文件尚未创建)";
   }
 
-  private defaultChapterTitle(chapterNumber: number, language: "zh" | "en"): string {
-    return language === "en" ? `Chapter ${chapterNumber}` : `第${chapterNumber}章`;
+  private defaultChapterTitle(chapterNumber: number, language: "zh" | "en" | "vi"): string {
+    if (language === "en") return `Chapter ${chapterNumber}`;
+    if (language === "vi") return `Chương ${chapterNumber}`;
+    return `第${chapterNumber}章`;
   }
 }

@@ -149,6 +149,42 @@ Use evidence chains; do not turn clues into generic atmosphere.
 
 InkOS now separates two configuration paths: **Studio uses visual service settings**, while **CLI / daemon / deployment can still use env overrides**. They do not silently overwrite each other.
 
+#### Vietnamese UI and generation
+
+The UI locale and content-generation language are separate settings: the TUI interface uses `vi-VN`, while writing and generation use `vi`. Initialize the current directory with:
+
+```bash
+inkos init --lang vi
+```
+
+Or create a named Vietnamese-language project:
+
+```bash
+inkos init <project-name> --lang vi
+cd <project-name>
+```
+
+Start the Vietnamese TUI in a POSIX shell:
+
+```bash
+INKOS_TUI_LOCALE=vi-VN inkos tui
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:INKOS_TUI_LOCALE = "vi-VN"
+inkos tui
+```
+
+On Windows Command Prompt (CMD):
+
+```bat
+set INKOS_TUI_LOCALE=vi-VN && inkos tui
+```
+
+If no language is specified, InkOS keeps its existing default behavior (normally `zh`, or a global/genre default when configured). `INKOS_TUI_LOCALE=vi-VN` changes only the TUI interface; it does not set generation to `vi`, so pass `--lang vi` when initializing a project or invoking a relevant creation command.
+
 **Option 1: Studio service settings (recommended for local writing)**
 
 ```bash

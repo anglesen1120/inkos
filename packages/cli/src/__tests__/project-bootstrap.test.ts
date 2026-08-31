@@ -34,6 +34,16 @@ describe("project bootstrap", () => {
     await expect(readFile(join(tempDir, ".node-version"), "utf-8")).resolves.toBe("22\n");
   }, 20_000);
 
+  it("stores Vietnamese as the project language", async () => {
+    const { ensureProjectDirectoryInitialized } = await import("../project-bootstrap.js");
+
+    const initialized = await ensureProjectDirectoryInitialized(tempDir, { language: "vi" });
+
+    expect(initialized).toBe(true);
+    const config = JSON.parse(await readFile(join(tempDir, "inkos.json"), "utf-8"));
+    expect(config.language).toBe("vi");
+  }, 20_000);
+
   it("does not overwrite support files when auto-initializing", async () => {
     await writeFile(join(tempDir, ".env"), "EXISTING=1\n", "utf-8");
     await writeFile(join(tempDir, ".gitignore"), "CUSTOM\n", "utf-8");
@@ -47,6 +57,17 @@ describe("project bootstrap", () => {
     expect(gitignore).toContain(".env\n");
     expect(gitignore).toContain("node_modules/\n");
     expect(gitignore).toContain(".DS_Store\n");
+  });
+
+  it("reads active global API key markers and ignores blank, comment, and placeholder entries", async () => {
+    const { hasActiveGlobalApiKey } = await import("../project-bootstrap.js");
+
+    expect(hasActiveGlobalApiKey("\n# comment\nINKOS_LLM_API_KEY=sk-test\n")).toBe(true);
+    expect(hasActiveGlobalApiKey("\n# comment\nINKOS_LLM_API_KEY=\n")).toBe(false);
+    expect(hasActiveGlobalApiKey("\n# comment\nINKOS_LLM_API_KEY=your-api-key-here\n")).toBe(false);
+    expect(hasActiveGlobalApiKey("INKOS_LLM_API_KEY=\"\"\n")).toBe(false);
+    expect(hasActiveGlobalApiKey("INKOS_LLM_API_KEY='   '\n")).toBe(false);
+    expect(hasActiveGlobalApiKey("\n# comment only\n")).toBe(false);
   });
 
   it("preserves an existing .gitignore when explicitly initializing", async () => {

@@ -32,7 +32,7 @@ export class FoundationReviewerAgent extends BaseAgent {
     readonly mode: "original" | "fanfic" | "series";
     readonly sourceCanon?: string;
     readonly styleGuide?: string;
-    readonly language: "zh" | "en";
+    readonly language: "zh" | "en" | "vi";
     readonly targetChapters?: number;
   }): Promise<FoundationReviewResult> {
     const canonBlock = params.sourceCanon
@@ -48,7 +48,9 @@ export class FoundationReviewerAgent extends BaseAgent {
 
     const systemPrompt = params.language === "en"
       ? this.buildEnglishReviewPrompt(dimensions, canonBlock, styleBlock)
-      : this.buildChineseReviewPrompt(dimensions, canonBlock, styleBlock);
+      : params.language === "vi"
+        ? this.buildVietnameseReviewPrompt(dimensions, canonBlock, styleBlock)
+        : this.buildChineseReviewPrompt(dimensions, canonBlock, styleBlock);
 
     const userPrompt = this.buildFoundationExcerpt(params.foundation, params.language);
 
@@ -60,12 +62,21 @@ export class FoundationReviewerAgent extends BaseAgent {
     return this.parseReviewResult(response.content, dimensions);
   }
 
-  private originalDimensions(language: "zh" | "en", targetChapters?: number): ReadonlyArray<string> {
+  private originalDimensions(language: "zh" | "en" | "vi", targetChapters?: number): ReadonlyArray<string> {
     const target = Number.isFinite(targetChapters) && targetChapters && targetChapters > 0
       ? Math.round(targetChapters)
       : 40;
     const openingWindow = Math.min(5, target);
     const repeatWindow = Math.min(10, Math.max(3, target));
+    if (language === "vi") {
+      return [
+        `Xung đột lõi (Có xung đột trung tâm rõ ràng, đủ hấp dẫn để chống đỡ ${target} chương không?)`,
+        `Đà mở đầu (Trong ${openingWindow} chương đầu có tạo được lực lật trang không?)`,
+        "Tính nhất quán thế giới (Thiết lập có nội tại nhất quán và cụ thể không?)",
+        "Độ phân biệt nhân vật (Nhân vật chính có giọng nói và động cơ khác nhau rõ không?)",
+        `Tính khả thi nhịp truyện (Đề cương có phù hợp ${target} chương và tránh lặp cùng một nhịp trong ${repeatWindow} chương không?)`,
+      ];
+    }
     return language === "en"
       ? [
           `Core Conflict (Is there a clear, compelling central conflict that can sustain the requested ${target} chapters?)`,
@@ -83,10 +94,20 @@ export class FoundationReviewerAgent extends BaseAgent {
         ];
   }
 
-  private derivativeDimensions(language: "zh" | "en", mode: "fanfic" | "series"): ReadonlyArray<string> {
+  private derivativeDimensions(language: "zh" | "en" | "vi", mode: "fanfic" | "series"): ReadonlyArray<string> {
     const modeLabel = mode === "fanfic"
-      ? (language === "en" ? "Fan Fiction" : "同人")
-      : (language === "en" ? "Series" : "系列");
+      ? (language === "en" ? "Fan Fiction" : language === "vi" ? "fanfic" : "同人")
+      : (language === "en" ? "Series" : language === "vi" ? "series" : "系列");
+
+    if (language === "vi") {
+      return [
+        `Giữ DNA nguồn (Bản ${modeLabel} có tôn trọng luật thế giới, tính cách nhân vật và sự kiện đã xác lập không?)`,
+        "Không gian tự sự mới (Có điểm rẽ hoặc vùng mới để câu chuyện có tính nguyên bản, không chỉ kể lại không?)",
+        "Xung đột lõi (Xung đột trung tâm của truyện mới có đủ hấp dẫn và khác bản gốc không?)",
+        "Đà mở đầu (5 chương đầu có tạo lực lật trang mà không cần 3 chương dọn nền không?)",
+        "Tính khả thi nhịp truyện (Đề cương có tránh đi lại các nhịp cốt truyện của bản gốc không?)",
+      ];
+    }
 
     return language === "en"
       ? [
@@ -177,10 +198,46 @@ ${canonBlock}${styleBlock}
 Be strict. 80 means "ready to write without changes."`;
   }
 
-  private buildFoundationExcerpt(foundation: ArchitectOutput, language: "zh" | "en"): string {
-    return language === "en"
-      ? `## Story Bible\n${foundation.storyBible}\n\n## Volume Outline\n${foundation.volumeOutline}\n\n## Book Rules\n${foundation.bookRules}\n\n## Initial State\n${foundation.currentState}\n\n## Initial Hooks\n${foundation.pendingHooks}`
-      : `## 世界设定\n${foundation.storyBible}\n\n## 卷纲\n${foundation.volumeOutline}\n\n## 规则\n${foundation.bookRules}\n\n## 初始状态\n${foundation.currentState}\n\n## 初始伏笔\n${foundation.pendingHooks}`;
+  private buildVietnameseReviewPrompt(
+    dimensions: ReadonlyArray<string>,
+    canonBlock: string,
+    styleBlock: string,
+  ): string {
+    return `Bạn là biên tập viên tiểu thuyết kỳ cựu đang thẩm định nền móng sách mới (thế giới + đề cương + quy tắc).
+
+Chấm từng chiều (0-100) và đưa phản hồi cụ thể:
+
+${dimensions.map((dim, i) => `${i + 1}. ${dim}`).join("\n")}
+
+## Thang điểm
+- 80+ Đạt — có thể bắt đầu viết
+- 60-79 Cần chỉnh sửa
+- <60 Sai hướng nền tảng
+
+## Định dạng đầu ra (nghiêm ngặt)
+=== DIMENSION: 1 ===
+Score: {0-100}
+Feedback: {phản hồi cụ thể}
+
+=== DIMENSION: 2 ===
+Score: {0-100}
+Feedback: {phản hồi cụ thể}
+
+...
+
+=== OVERALL ===
+Total: {điểm trung bình có trọng số}
+Passed: {yes/no}
+Summary: {1-2 đoạn — vấn đề lớn nhất và điểm mạnh đáng giữ nhất}
+${canonBlock}${styleBlock}
+
+Hãy nghiêm khắc. 80 nghĩa là "sẵn sàng viết mà không cần sửa".`;
+  }
+
+  private buildFoundationExcerpt(foundation: ArchitectOutput, language: "zh" | "en" | "vi"): string {
+    if (language === "en") return `## Story Bible\n${foundation.storyBible}\n\n## Volume Outline\n${foundation.volumeOutline}\n\n## Book Rules\n${foundation.bookRules}\n\n## Initial State\n${foundation.currentState}\n\n## Initial Hooks\n${foundation.pendingHooks}`;
+    if (language === "vi") return `## Kinh thánh truyện\n${foundation.storyBible}\n\n## Đề cương tập\n${foundation.volumeOutline}\n\n## Quy tắc sách\n${foundation.bookRules}\n\n## Trạng thái ban đầu\n${foundation.currentState}\n\n## Móc truyện ban đầu\n${foundation.pendingHooks}`;
+    return `## 世界设定\n${foundation.storyBible}\n\n## 卷纲\n${foundation.volumeOutline}\n\n## 规则\n${foundation.bookRules}\n\n## 初始状态\n${foundation.currentState}\n\n## 初始伏笔\n${foundation.pendingHooks}`;
   }
 
   private parseReviewResult(

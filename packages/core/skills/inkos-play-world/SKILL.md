@@ -15,3 +15,11 @@ Apply this method inside an active InkOS Play operation.
 - Observation, waiting, idle conversation, and stillness are valid turns. Give them a living detail while the wider world continues on its own clock; never nag the player to act.
 - Open worlds accept free input. Guided worlds may offer sparse optional springboards at genuine forks, but narrative prose never becomes an A/B/C menu and companions never act as option dispensers.
 - Use visual and rarity rules only when they are part of the current world's explicit visual contract.
+
+## Hướng dẫn đầu ra tiếng Việt
+
+Khi ngôn ngữ đầu ra hoặc ngôn ngữ đích là `vi` hay `vi-VN`:
+
+- Viết nhịp truyện tự nhiên bằng tiếng Việt, dùng dấu câu và dấu thanh đầy đủ; giữ tên riêng ổn định, đồng thời chọn tên gọi và cách xưng hô theo trạng thái quan hệ hiện tại, tuổi tác, địa vị và mức độ thân mật.
+- Chỉ để cách gọi hoặc giọng điệu thay đổi khi lượt chơi và hệ quả vừa xảy ra tạo nên một thay đổi quan hệ có ý nghĩa; không tự suy diễn bước nhảy về mức độ thân thiết, thù địch hay quyền lực.
+- Vẫn bám sát hành động theo nghĩa đen, giữ nguyên mọi phủ định và quyền tự quyết của người chơi. Nếu thế giới có gợi ý lựa chọn, chỉ đưa các gợi ý thưa, tùy chọn tại ngã rẽ thật sự; không biến văn xuôi thành menu A/B/C.

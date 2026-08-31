@@ -3,17 +3,22 @@ import { basename, join } from "node:path";
 import { GLOBAL_ENV_PATH } from "./utils.js";
 
 export interface ProjectBootstrapOptions {
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly overwriteSupportFiles?: boolean;
 }
 
-async function hasGlobalConfig(): Promise<boolean> {
-  try {
-    const content = await readFile(GLOBAL_ENV_PATH, "utf-8");
-    return content.includes("INKOS_LLM_API_KEY=") && !content.includes("your-api-key-here");
-  } catch {
-    return false;
-  }
+export function hasActiveGlobalApiKey(content: string): boolean {
+  return content.split(/\r?\n/).some((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return false;
+    const match = trimmed.match(/^INKOS_LLM_API_KEY\s*=\s*(.+)$/);
+    if (!match) return false;
+    const rawValue = match[1]!.trim();
+    const value = rawValue.length >= 2 && ((rawValue.startsWith("\"") && rawValue.endsWith("\"")) || (rawValue.startsWith("'") && rawValue.endsWith("'")))
+      ? rawValue.slice(1, -1).trim()
+      : rawValue;
+    return value.length > 0 && !value.startsWith("#") && !value.includes("your-api-key-here");
+  });
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -59,7 +64,7 @@ export async function ensureProjectGitignore(projectDir: string): Promise<void> 
   await writeFile(path, `${existing}${separator}${missing.join("\n")}\n`, "utf-8");
 }
 
-function buildProjectConfig(projectDir: string, language: "zh" | "en") {
+function buildProjectConfig(projectDir: string, language: "zh" | "en" | "vi") {
   return {
     name: basename(projectDir),
     version: "0.1.0" as const,
@@ -141,7 +146,7 @@ export async function initializeProjectDirectory(
     "utf-8",
   );
 
-  const globalConfigured = await hasGlobalConfig();
+  const globalConfigured = await readFile(GLOBAL_ENV_PATH, "utf-8").then(hasActiveGlobalApiKey).catch(() => false);
 
   await Promise.all([
     writeMaybe(join(projectDir, ".env"), buildProjectEnvTemplate(globalConfigured), overwriteSupportFiles),

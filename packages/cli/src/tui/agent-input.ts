@@ -15,6 +15,7 @@ import {
   type SessionKind,
 } from "@actalk/inkos-core";
 import { persistProjectSession } from "./session-store.js";
+import type { CliLanguage } from "../localization.js";
 import { buildPipelineConfig, loadConfig } from "../utils.js";
 
 interface TuiAgentRoute {
@@ -48,7 +49,7 @@ export async function processTuiAgentInput(params: {
   );
   const userTimestamp = Date.now();
   const currentBookId = params.activeBookId ?? params.session.activeBookId ?? null;
-  const language = config.language === "en" ? "en" : "zh";
+  const language: CliLanguage = config.language === "en" || config.language === "vi" ? config.language : "zh";
   const route = resolveTuiAgentRoute(params.input, params.session, currentBookId, language);
   const resolvedBookId = route.detachBook ? null : currentBookId;
   const initialMessages = params.session.messages
@@ -166,7 +167,7 @@ export function resolveTuiAgentRoute(
   rawInput: string,
   session: InteractionSession,
   activeBookId: string | null,
-  language: "zh" | "en" = "zh",
+  language: CliLanguage = "zh",
 ): TuiAgentRoute {
   const input = rawInput.trim();
   const currentKind = session.sessionKind ?? (activeBookId ? "book" : "chat");
@@ -174,7 +175,7 @@ export function resolveTuiAgentRoute(
   if (/^\/confirm$/i.test(input)) {
     const pending = session.pendingProposedAction;
     if (!pending) {
-      return localConfirmationRoute(currentKind, input, language === "en" ? "There is no pending action." : "没有待确认的动作。");
+      return localConfirmationRoute(currentKind, input, language === "en" ? "There is no pending action." : language === "vi" ? "Không có hành động nào đang chờ." : "没有待确认的动作。");
     }
     const requestedIntent = RequestedIntentSchema.safeParse(pending.action);
     const actionPayload = pending.actionPayload === undefined
@@ -186,7 +187,9 @@ export function resolveTuiAgentRoute(
         input,
         language === "en"
           ? "This pending action is no longer valid. Please propose it again."
-          : "这条待确认动作已失效，请重新提出需求。",
+          : language === "vi"
+            ? "Hành động đang chờ không còn hợp lệ. Vui lòng đề xuất lại."
+            : "这条待确认动作已失效，请重新提出需求。",
       );
     }
     return {
@@ -207,8 +210,8 @@ export function resolveTuiAgentRoute(
       currentKind,
       input,
       session.pendingProposedAction
-        ? language === "en" ? "Pending action cancelled." : "已取消待确认动作。"
-        : language === "en" ? "There is no pending action." : "没有待确认的动作。",
+        ? language === "en" ? "Pending action cancelled." : language === "vi" ? "Đã hủy hành động đang chờ." : "已取消待确认动作。"
+        : language === "en" ? "There is no pending action." : language === "vi" ? "Không có hành động nào đang chờ." : "没有待确认的动作。",
     );
   }
 
@@ -216,21 +219,27 @@ export function resolveTuiAgentRoute(
   if (newMatch) {
     return entryRoute("book-create", commandBody(newMatch[1], language === "en"
       ? "I want to create a new book. Confirm the direction with me first."
-      : "我想创建一本新书，请先和我确认方向。"));
+      : language === "vi"
+        ? "Tôi muốn tạo một cuốn sách mới. Hãy xác nhận hướng đi với tôi trước."
+        : "我想创建一本新书，请先和我确认方向。"));
   }
 
   const shortMatch = input.match(/^\/short(?:\s+([\s\S]+))?$/i);
   if (shortMatch) {
     return entryRoute("short", commandBody(shortMatch[1], language === "en"
       ? "I want to create an InkOS Short. Confirm the direction with me first."
-      : "我想做 InkOS Short，请先和我确认方向。"));
+      : language === "vi"
+        ? "Tôi muốn tạo một truyện ngắn InkOS. Hãy xác nhận hướng đi với tôi trước."
+        : "我想做 InkOS Short，请先和我确认方向。"));
   }
 
   const coverMatch = input.match(/^\/cover(?:\s+([\s\S]+))?$/i);
   if (coverMatch) {
     return entryRoute("short", commandBody(coverMatch[1], language === "en"
       ? "I want to create or redo a cover. Confirm the target with me first."
-      : "我想生成或重做封面，请先和我确认目标。"));
+      : language === "vi"
+        ? "Tôi muốn tạo hoặc làm lại bìa. Hãy xác nhận mục tiêu với tôi trước."
+        : "我想生成或重做封面，请先和我确认目标。"));
   }
 
   const playMatch = input.match(/^\/play(?:\s+(open|guided))?(?:\s+([\s\S]+))?$/i);
@@ -239,14 +248,16 @@ export function resolveTuiAgentRoute(
     return {
       ...entryRoute("play", commandBody(playMatch[2], language === "en"
         ? "I want to start an interactive world. Confirm the opening with me first."
-        : "我想启动互动世界，请先和我确认开局。")),
+        : language === "vi"
+          ? "Tôi muốn bắt đầu một thế giới tương tác. Hãy xác nhận phần mở đầu với tôi trước."
+          : "我想启动互动世界，请先和我确认开局。")),
       ...(playMode ? { playMode } : {}),
     };
   }
 
   if (/^\/write$/i.test(input)) {
     return {
-      userMessage: language === "en" ? "Write the next chapter" : "写下一章",
+      userMessage: language === "en" ? "Write the next chapter" : language === "vi" ? "Viết chương tiếp theo" : "写下一章",
       sessionKind: activeBookId ? "book" : currentKind,
       actionSource: "slash",
       requestedIntent: "write_next",
@@ -322,8 +333,12 @@ function extractProposedAction(messages: ReadonlyArray<unknown>): PendingPropose
   return undefined;
 }
 
-function formatProposedAction(action: PendingProposedAction, language: "zh" | "en"): string {
-  return language === "en"
-    ? [action.title ?? "Confirm action", action.summary ?? "Confirm to continue.", "", action.instruction, "", "Type /confirm to continue, or /cancel to cancel."].join("\n")
-    : [action.title ?? "确认执行", action.summary ?? "确认后继续执行。", "", action.instruction, "", "输入 /confirm 继续，或 /cancel 取消。"].join("\n");
+function formatProposedAction(action: PendingProposedAction, language: CliLanguage): string {
+  if (language === "en") {
+    return [action.title ?? "Confirm action", action.summary ?? "Confirm to continue.", "", action.instruction, "", "Type /confirm to continue, or /cancel to cancel."].join("\n");
+  }
+  if (language === "vi") {
+    return [action.title ?? "Xác nhận hành động", action.summary ?? "Xác nhận để tiếp tục.", "", action.instruction, "", "Nhập /confirm để tiếp tục, hoặc /cancel để hủy."].join("\n");
+  }
+  return [action.title ?? "确认执行", action.summary ?? "确认后继续执行。", "", action.instruction, "", "输入 /confirm 继续，或 /cancel 取消。"].join("\n");
 }

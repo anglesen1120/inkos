@@ -27,21 +27,27 @@ export function buildWriterSystemPrompt(
   chapterNumber?: number,
   mode: "full" | "creative" = "full",
   fanficContext?: FanficContext,
-  languageOverride?: "zh" | "en",
+  languageOverride?: "zh" | "en" | "vi",
   inputProfile: "legacy" | "governed" = "legacy",
   lengthSpec?: LengthSpec,
 ): string {
-  const isEnglish = (languageOverride ?? genreProfile.language) === "en";
+  const language = languageOverride ?? genreProfile.language;
+  const isEnglish = language === "en";
+  const isVietnamese = language === "vi";
   const governed = inputProfile === "governed";
-  const resolvedLengthSpec = lengthSpec ?? buildLengthSpec(book.chapterWordCount, isEnglish ? "en" : "zh");
+  const resolvedLengthSpec = lengthSpec ?? buildLengthSpec(book.chapterWordCount, isEnglish ? "en" : isVietnamese ? "vi" : "zh");
 
   const outputSection = isEnglish
     ? (mode === "creative"
         ? buildEnglishCreativeOutputFormat(book, genreProfile, resolvedLengthSpec)
         : buildEnglishOutputFormat(book, genreProfile, resolvedLengthSpec))
-    : (mode === "creative"
-        ? buildCreativeOutputFormat(book, genreProfile, resolvedLengthSpec)
-        : buildOutputFormat(book, genreProfile, resolvedLengthSpec));
+    : isVietnamese
+      ? (mode === "creative"
+          ? buildVietnameseCreativeOutputFormat(book, genreProfile, resolvedLengthSpec)
+          : buildVietnameseOutputFormat(book, genreProfile, resolvedLengthSpec))
+      : (mode === "creative"
+          ? buildCreativeOutputFormat(book, genreProfile, resolvedLengthSpec)
+          : buildOutputFormat(book, genreProfile, resolvedLengthSpec));
 
   const sections = isEnglish
     ? [
@@ -52,37 +58,18 @@ export function buildWriterSystemPrompt(
         buildGoldenOpeningDiscipline(chapterNumber, "en"),
         buildGenreRules(genreProfile, genreBody),
         buildProtagonistRules(bookRules),
-        buildNarrativePersonRule(bookRules, isEnglish ? "en" : "zh"),
-        buildBookRulesBody(bookRulesBody),
-        buildStyleGuide(styleGuide),
-        buildStyleFingerprint(styleFingerprint),
+        buildNarrativePersonRule(bookRules, "en"),
+        buildBookRulesBody(bookRulesBody), buildStyleGuide(styleGuide), buildStyleFingerprint(styleFingerprint),
         fanficContext ? buildFanficCanonSection(fanficContext.fanficCanon, fanficContext.fanficMode) : "",
         fanficContext ? buildCharacterVoiceProfiles(fanficContext.fanficCanon) : "",
-        fanficContext ? buildFanficModeInstructions(fanficContext.fanficMode, fanficContext.allowedDeviations) : "",
-        // Pre-write checklist moved to style_guide.md (v10)
-        outputSection,
+        fanficContext ? buildFanficModeInstructions(fanficContext.fanficMode, fanficContext.allowedDeviations) : "", outputSection,
       ]
-    : [
-        buildGenreIntro(book, genreProfile),
-        buildGovernedInputContract("zh", governed),
-        buildChapterMemoContract("zh", governed),
-        buildLengthGuidance(resolvedLengthSpec, "zh"),
-        buildGoldenOpeningDiscipline(chapterNumber, "zh"),
-        bookRules?.enableFullCastTracking ? buildFullCastTracking() : "",
-        buildGenreRules(genreProfile, genreBody),
-        buildProtagonistRules(bookRules),
-        buildNarrativePersonRule(bookRules, isEnglish ? "en" : "zh"),
-        buildBookRulesBody(bookRulesBody),
-        buildStyleGuide(styleGuide),
-        buildStyleFingerprint(styleFingerprint),
-        fanficContext ? buildFanficCanonSection(fanficContext.fanficCanon, fanficContext.fanficMode) : "",
-        fanficContext ? buildCharacterVoiceProfiles(fanficContext.fanficCanon) : "",
-        fanficContext ? buildFanficModeInstructions(fanficContext.fanficMode, fanficContext.allowedDeviations) : "",
-        // Pre-write checklist moved to style_guide.md (v10)
-        outputSection,
-      ];
+    : isVietnamese
+      ? [buildVietnameseGenreIntro(book, genreProfile), buildGovernedInputContract("vi", governed), buildChapterMemoContract("vi", governed), buildLengthGuidance(resolvedLengthSpec, "vi"), buildGoldenOpeningDiscipline(chapterNumber, "vi"), buildVietnameseGenreGuidance(genreProfile, genreBody), buildVietnameseProtagonistRules(bookRules), buildNarrativePersonRule(bookRules, "vi"), buildVietnameseBookRulesBody(bookRulesBody), buildVietnameseStyleGuide(styleGuide), buildVietnameseStyleFingerprint(styleFingerprint), outputSection]
+      : [buildGenreIntro(book, genreProfile), buildGovernedInputContract("zh", governed), buildChapterMemoContract("zh", governed), buildLengthGuidance(resolvedLengthSpec, "zh"), buildGoldenOpeningDiscipline(chapterNumber, "zh"), bookRules?.enableFullCastTracking ? buildFullCastTracking() : "", buildGenreRules(genreProfile, genreBody), buildProtagonistRules(bookRules), buildNarrativePersonRule(bookRules, "zh"), buildBookRulesBody(bookRulesBody), buildStyleGuide(styleGuide), buildStyleFingerprint(styleFingerprint), outputSection];
 
   return sections.filter(Boolean).join("\n\n");
+
 }
 
 // ---------------------------------------------------------------------------
@@ -92,8 +79,54 @@ export function buildWriterSystemPrompt(
 function buildGenreIntro(book: BookConfig, gp: GenreProfile): string {
   return `你是一位专业的${gp.name}网络小说作家。你为${book.platform}平台写作。`;
 }
+function buildVietnameseGenreIntro(book: BookConfig, gp: GenreProfile): string {
+  return `Bạn là nhà văn chuyên nghiệp về thể loại ${gp.name}, viết cho nền tảng ${book.platform}. Hãy viết toàn bộ văn xuôi, lời thoại và suy nghĩ bằng tiếng Việt tự nhiên; dùng xưng hô phù hợp quan hệ và bối cảnh, dấu câu tiếng Việt chuẩn, không dịch tên riêng hay mã kỹ thuật.`;
+}
 
-function buildGovernedInputContract(language: "zh" | "en", governed: boolean): string {
+function buildVietnameseCreativeOutputFormat(_book: BookConfig, _gp: GenreProfile, lengthSpec: LengthSpec): string {
+  return `## Định dạng đầu ra (bắt buộc)
+
+=== PRE_WRITE_CHECK ===
+(Bảng Markdown kiểm tra kế hoạch chapter_memo; giữ nguyên các mục và mã kiểm tra.)
+
+=== CHAPTER_TITLE ===
+(Tiêu đề chương, không thêm “Chương X”.)
+
+=== CHAPTER_CONTENT ===
+(Văn xuôi tiếng Việt tự nhiên, mục tiêu ${lengthSpec.target} từ, khoảng cho phép ${lengthSpec.softMin}-${lengthSpec.softMax} từ.)
+
+Chỉ xuất ba khối trên; không xuất JSON hay giải thích ngoài các khối.`;
+}
+
+function buildVietnameseOutputFormat(book: BookConfig, gp: GenreProfile, lengthSpec: LengthSpec): string {
+  return `${buildVietnameseCreativeOutputFormat(book, gp, lengthSpec)}
+
+=== POST_SETTLEMENT ===
+(Tóm tắt thay đổi sau chương bằng bảng Markdown.)
+
+=== UPDATED_STATE ===
+(Toàn bộ thẻ trạng thái đã cập nhật.)
+
+=== UPDATED_LEDGER ===
+(Toàn bộ sổ tài nguyên đã cập nhật, nếu thể loại dùng hệ thống số.)
+
+=== UPDATED_HOOKS ===
+(Toàn bộ kho móc truyện đã cập nhật.)
+
+=== CHAPTER_SUMMARY ===
+(Tóm tắt chương bằng bảng Markdown.)
+
+=== UPDATED_SUBPLOTS ===
+(Bảng tiến độ tuyến phụ.)
+
+=== UPDATED_EMOTIONAL_ARCS ===
+(Bảng cung bậc cảm xúc.)
+
+=== UPDATED_CHARACTER_MATRIX ===
+(Ma trận nhân vật đã cập nhật, mỗi nhân vật một khối ##.)`;
+}
+
+function buildGovernedInputContract(language: "zh" | "en" | "vi", governed: boolean): string {
   if (!governed) return "";
 
   if (language === "en") {
@@ -108,6 +141,15 @@ function buildGovernedInputContract(language: "zh" | "en", governed: boolean): s
 - When the explicit hook agenda names an eligible resolve target, land a concrete payoff beat that answers the reader's original question from the seed chapter.
 - When stale debt is present, do not open sibling hooks casually; clear pressure from old promises before minting fresh debt.
 - In multi-character scenes, include at least one resistance-bearing exchange instead of reducing the beat to summary or explanation.`;
+  }
+
+  if (language === "vi") {
+    return `## Quy ước điều phối đầu vào
+
+- Nội dung chương phải theo chapter intent và gói ngữ cảnh đã cung cấp.
+- Giữ sự kiện, tính liên tục và cấm đoán rõ ràng; ưu tiên chỉ dẫn hiện tại khi có active override.
+- Hook Debt Brief phải dẫn đến cảnh tiếp nối hoặc hoàn trả cụ thể, không nhắc mơ hồ.
+- Cảnh nhiều nhân vật cần ít nhất một lượt đối đáp có phản kháng; viết bằng tiếng Việt tự nhiên.`;
   }
 
   return `## 输入治理契约
@@ -127,7 +169,7 @@ function buildGovernedInputContract(language: "zh" | "en", governed: boolean): s
 // Chapter memo alignment — 7 sections from mobile web-fiction craft methodology
 // ---------------------------------------------------------------------------
 
-function buildChapterMemoContract(language: "zh" | "en", governed: boolean): string {
+function buildChapterMemoContract(language: "zh" | "en" | "vi", governed: boolean): string {
   if (!governed) return "";
 
   if (language === "en") {
@@ -146,24 +188,18 @@ You will receive a chapter_memo composed of 7 markdown sections:
 
 Address each section in order when drafting the chapter. Every section must leave a visible trace in the prose — if a section is not reflected, the chapter is incomplete. **After the first draft, self-check the hook ledger**: list each hook_id from advance/resolve and point each one to a specific prose span containing action / object / dialogue. If you cannot point to one, go back and add it; do not submit a draft where the ledger lives in the memo but nowhere in the prose — review will flag the missing payoff and ask for a concrete scene.`;
   }
+  if (language === "vi") {
+    return `## Bám sát chapter_memo
+
+Bạn sẽ nhận chapter_memo gồm bảy phần Markdown. Hãy thể hiện từng phần trong văn xuôi: nhiệm vụ hiện tại, điều độc giả chờ đợi, phần cần hoàn trả hoặc giữ kín, chức năng chuyển cảnh, lựa chọn then chốt, thay đổi bắt buộc cuối chương và hook ledger. Mọi hook_id ở advance/resolve phải có cảnh cụ thể trong văn bản; defer không cần cảnh. Sau bản nháp, đối chiếu từng hook_id với hành động, vật thể hoặc lời thoại tương ứng.`;
+  }
 
   return `## 章节备忘对齐
 
-你将收到本章的 chapter_memo，由 7 段 markdown 组成：
-
-- ## 当前任务 → 本章必须完成的具体动作，写作时始终对齐这条
-- ## 读者此刻在等什么 → 控制情绪缺口的制造/延迟/兑现程度
-- ## 该兑现的 / 暂不掀的 → 本章必须兑现的伏笔清单 + 必须压住不掀的底牌
-- ## 日常/过渡承担什么任务 → 非冲突段落的功能映射（[段落位置] → [承担功能]）
-- ## 关键抉择过三连问 → 关键人物选择必须过的检查
-- ## 章尾必须发生的改变 → 结尾落地的 1-3 条具体改变（信息/关系/物理/权力）
-- ## 本章 hook 账 → **硬对应规则**：advance/resolve 下面列出的每一个 hook_id 都必须在正文里有一个**具体可定位的兑现段**——写明人物对着什么物件/事件/信息做出什么可观察的动作或交谈。不允许"侧面暗示""留给下章"。举例：memo 写 'advance: H007 胖虎借条 → planted → pressured'，正文里必须出现一段林秋真的伸手摸到/看到/拿起那张胖虎借条并做出动作的场景；不能只写"他想起借条还在抽屉里"这种内心提及。每个 advance/resolve 的 hook 兑现段至少 60 字。defer 下的不用落，open 段只需要在章末附近安排一个自然引出的新悬念即可
-- ## 不要做 → 硬约束红线
-
-写作时按段落顺序落实，每一段都要在正文里有对应的兑现痕迹。如果某一段没有体现到正文里，本章不算完成。**写完初稿后自检一遍 hook 账**：把 advance 和 resolve 的 hook_id 列下来，对照正文，确认每一个都能指到一段带具体动作/物件/对话的 prose。如果指不到，回去补写；不要提交"账本在 memo 里、正文里没落"的稿子——审稿会标记缺口并要求补出具体场景。`;
+你将收到本章的 chapter_memo，由 7 段 markdown 组成。请按顺序落实每一段；advance/resolve 的每个 hook_id 必须在正文有具体兑现段，defer 不必落地。写完后逐一核对 hook_id 与动作、物件或对话。`;
 }
 
-function buildLengthGuidance(lengthSpec: LengthSpec, language: "zh" | "en"): string {
+function buildLengthGuidance(lengthSpec: LengthSpec, language: "zh" | "en" | "vi"): string {
   if (language === "en") {
     return `## Length Guidance
 
@@ -171,7 +207,13 @@ function buildLengthGuidance(lengthSpec: LengthSpec, language: "zh" | "en"): str
 - Acceptable range: ${lengthSpec.softMin}-${lengthSpec.softMax} words
 - Hard range: ${lengthSpec.hardMin}-${lengthSpec.hardMax} words`;
   }
+  if (language === "vi") {
+    return `## Hướng dẫn độ dài
 
+- Mục tiêu: ${lengthSpec.target} từ
+- Khoảng chấp nhận: ${lengthSpec.softMin}-${lengthSpec.softMax} từ
+- Khoảng cứng: ${lengthSpec.hardMin}-${lengthSpec.hardMax} từ (đếm theo vi_words)`;
+  }
   return `## 字数治理
 
 - 目标字数：${lengthSpec.target}字
@@ -187,7 +229,7 @@ function buildLengthGuidance(lengthSpec: LengthSpec, language: "zh" | "en"): str
 
 export function buildGoldenOpeningDiscipline(
   chapterNumber: number | undefined,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): string {
   if (chapterNumber === undefined || chapterNumber > 3) return "";
 
@@ -197,6 +239,12 @@ export function buildGoldenOpeningDiscipline(
 This is chapter ${chapterNumber} of the opening three — your prose directly decides whether the reader stays. The Golden Three Chapters rule is a hard constraint on your sentences, not advice. Chapter 1: within the first 800 words the protagonist must trip the main-line conflict (chase, dead-end, dispossession, transmigration-as-crisis); long background paragraphs are forbidden, and worldbuilding rides on the protagonist's actions instead of being explained in a block. **The last sentence of the first 300 words (the reader's first phone screen) must land a dramatic / reversal / striking beat — "Officer, I transmigrated"-level, "I'll probably die tomorrow"-level, "I'm attending my own funeral"-level — not background or scene-setting. When the reader scrolls to the bottom of the first screen they must feel pulled into the next line.** Chapter 2: the edge — power, system, rebirth-memory, information advantage — must be **performed** (one concrete event of using it, with a visible consequence), not **announced** (a narrator paragraph saying it exists). Chapter 3: somewhere in this chapter the protagonist's next quantifiable short-term goal must surface, so the reader can name what comes next when they close the page.
 
 The discipline that runs across all three opening chapters: paragraphs of three to five lines (mobile reading), verbs over adjectives, and every chapter ends on a small hook — a cliff, an unresolved question, or an emotional gap. **At most two scenes and at most two named characters who actually clash in the chapter (protagonist + one trigger/opponent; walk-on roles get a role label only, no name, no expansion). Editor Cong Yue's rule tightens the cap from 3 to 2 — readers already mix up 3.** Information is layered into action: basic facts (looks, status, situation) emerge from what the protagonist does; key world rules (system mechanics, the deeper logic) attach to plot triggers; a paragraph of pure exposition is forbidden.`;
+  }
+
+  if (language === "vi") {
+    return `## Kỷ luật ba chương mở đầu — Chương ${chapterNumber}
+
+Đây là chương ${chapterNumber} trong ba chương mở đầu. Chương 1 phải kích hoạt xung đột chính trong 800 từ đầu, không mở bằng đoạn nền dài; câu cuối của 300 từ đầu phải tạo nhịp kịch tính hoặc đảo chiều. Chương 2 phải cho năng lực, hệ thống hoặc chênh lệch thông tin xuất hiện qua hành động có hậu quả nhìn thấy được, không chỉ giải thích. Chương 3 phải nêu mục tiêu ngắn hạn có thể đo đếm. Giữ đoạn văn 3-5 dòng phù hợp đọc trên điện thoại, ưu tiên động từ, kết chương bằng móc truyện, tối đa hai cảnh và hai nhân vật có tên trực tiếp đối đầu; đưa thông tin qua hành động thay vì thuyết minh. Văn xuôi, lời thoại, xưng hô và dấu câu phải tự nhiên bằng tiếng Việt; độ dài tính theo từ (vi_words).`;
   }
 
   return `## 黄金三章写作纪律 — 第 ${chapterNumber} 章
@@ -246,6 +294,28 @@ function buildGenreRules(gp: GenreProfile, genreBody: string): string {
   ].filter(Boolean).join("\n\n");
 }
 
+export function buildVietnameseGenreGuidance(gp: GenreProfile, genreBody: string): string {
+  const fatigueLine = gp.fatigueWords.length > 0
+    ? `- Từ ngữ dễ gây mệt mỏi (${gp.fatigueWords.join(", ")}) chỉ được xuất hiện tối đa một lần mỗi chương`
+    : "";
+  const chapterTypesLine = gp.chapterTypes.length > 0
+    ? `Trước khi viết, hãy xác định loại chương:\n${gp.chapterTypes.map(t => `- ${t}`).join("\n")}`
+    : "";
+  const pacingLine = gp.pacingRule
+    ? `- Quy tắc nhịp độ: ${gp.pacingRule}`
+    : "";
+  const sharedMechanicsGuidance = "Hồ sơ và nội dung thể loại dùng chung bên dưới có giá trị bắt buộc. Hãy áp dụng theo đúng ý nghĩa; giữ nguyên nội dung gốc và không dịch hoặc viết lại các quy tắc cơ chế và tên riêng.";
+
+  return [
+    `## Quy tắc thể loại (${gp.name})`,
+    sharedMechanicsGuidance,
+    fatigueLine,
+    pacingLine,
+    chapterTypesLine,
+    genreBody,
+  ].filter(Boolean).join("\n\n");
+}
+
 // ---------------------------------------------------------------------------
 // Protagonist rules from book_rules
 // ---------------------------------------------------------------------------
@@ -253,13 +323,18 @@ function buildGenreRules(gp: GenreProfile, genreBody: string): string {
 // Narrative person is a durable user constraint: enforce it only when the user
 // explicitly set one (book_rules.narrativePerson). When unset, stay silent so the
 // genre default applies — we never impose a person the user didn't ask for.
-function buildNarrativePersonRule(bookRules: BookRules | null, language: "zh" | "en"): string {
+function buildNarrativePersonRule(bookRules: BookRules | null, language: "zh" | "en" | "vi"): string {
   const person = bookRules?.narrativePerson;
   if (!person) return "";
   if (language === "en") {
     return person === "first"
       ? "## Narrative person (hard constraint)\nWrite this book entirely in FIRST person (the protagonist's inner viewpoint). Do NOT slip into third person or an omniscient narrator — this overrides genre convention and your default."
       : "## Narrative person (hard constraint)\nWrite this book in THIRD person.";
+  }
+  if (language === "vi") {
+    return person === "first"
+      ? "## Ngôi kể (ràng buộc bắt buộc)\nToàn bộ cuốn sách phải được kể ở NGÔI THỨ NHẤT (góc nhìn nội tâm của nhân vật chính). Không chuyển sang ngôi thứ ba hoặc người kể toàn tri; ràng buộc này ưu tiên hơn quy ước thể loại và khuynh hướng mặc định."
+      : "## Ngôi kể (ràng buộc bắt buộc)\nCuốn sách này được kể ở NGÔI THỨ BA.";
   }
   return person === "first"
     ? "## 叙事人称（硬约束）\n本书必须全程使用第一人称（主角内心视角）叙述，禁止切换到第三人称或全知视角——此约束优先于题材惯例与你的默认倾向。"
@@ -297,6 +372,34 @@ function buildProtagonistRules(bookRules: BookRules | null): string {
   return lines.join("\n");
 }
 
+function buildVietnameseProtagonistRules(bookRules: BookRules | null): string {
+  if (!bookRules?.protagonist) return "";
+
+  const p = bookRules.protagonist;
+  const lines = [`## Nguyên tắc nhân vật chính (${p.name})`];
+
+  if (p.personalityLock.length > 0) {
+    lines.push(`\nKhóa tính cách: ${p.personalityLock.join(", ")}`);
+  }
+  if (p.behavioralConstraints.length > 0) {
+    lines.push("\nRàng buộc hành vi:");
+    for (const constraint of p.behavioralConstraints) {
+      lines.push(`- ${constraint}`);
+    }
+  }
+  if (bookRules.prohibitions.length > 0) {
+    lines.push("\nĐiều cấm của sách:");
+    for (const prohibition of bookRules.prohibitions) {
+      lines.push(`- ${prohibition}`);
+    }
+  }
+  if (bookRules.genreLock?.forbidden && bookRules.genreLock.forbidden.length > 0) {
+    lines.push(`\nVùng cấm phong cách: không được xuất hiện ${bookRules.genreLock.forbidden.join(", ")}`);
+  }
+
+  return lines.join("\n");
+}
+
 // ---------------------------------------------------------------------------
 // Book rules body (user-written markdown)
 // ---------------------------------------------------------------------------
@@ -304,6 +407,11 @@ function buildProtagonistRules(bookRules: BookRules | null): string {
 function buildBookRulesBody(body: string): string {
   if (!body) return "";
   return `## 本书专属规则\n\n${body}`;
+}
+
+function buildVietnameseBookRulesBody(body: string): string {
+  if (!body) return "";
+  return `## Quy tắc riêng của sách\n\n${body}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -315,6 +423,11 @@ function buildStyleGuide(styleGuide: string): string {
   return `## 文风指南\n\n${styleGuide}`;
 }
 
+function buildVietnameseStyleGuide(styleGuide: string): string {
+  if (!styleGuide || styleGuide === "(文件尚未创建)") return "";
+  return `## Hướng dẫn văn phong\n\n${styleGuide}`;
+}
+
 // ---------------------------------------------------------------------------
 // Style fingerprint (Phase 9: C3)
 // ---------------------------------------------------------------------------
@@ -324,6 +437,15 @@ function buildStyleFingerprint(fingerprint?: string): string {
   return `## 文风指纹（模仿目标）
 
 以下是从参考文本中提取的写作风格特征。你的输出必须尽量贴合这些特征：
+
+${fingerprint}`;
+}
+
+function buildVietnameseStyleFingerprint(fingerprint?: string): string {
+  if (!fingerprint) return "";
+  return `## Dấu vân tay văn phong (mục tiêu mô phỏng)
+
+Dưới đây là các đặc trưng văn phong được rút ra từ văn bản tham chiếu. Đầu ra phải bám sát các đặc trưng này trong mức có thể:
 
 ${fingerprint}`;
 }

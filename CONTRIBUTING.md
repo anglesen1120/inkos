@@ -10,26 +10,57 @@ pnpm build
 pnpm test
 ```
 
-Node ≥ 20, pnpm ≥ 9.
+Node ≥ 22, pnpm ≥ 9.
 
 ## Project Structure
 
 ```
 packages/
   core/    # Agents, pipeline, state management, LLM providers
-  cli/     # Commander.js commands (22 commands)
+  cli/     # Commander.js CLI and TUI
+  studio/  # Studio web UI and API
 ```
 
-Monorepo managed with pnpm workspaces. `cli` depends on `core` via `workspace:*`.
+Monorepo managed with pnpm workspaces. Internal packages are linked through the workspace configuration during development.
 
 ## Development
 
 ```bash
-pnpm dev          # Watch mode (both packages)
+pnpm dev          # Watch mode (all packages)
 pnpm build        # Build once
 pnpm test         # Run all tests
 pnpm typecheck    # Type-check without emitting
 ```
+
+### Vietnamese localization gate
+
+Run the localization check when changing user-facing locale entries, Vietnamese runtime assets, or the locale guidance in the designated documentation:
+
+```bash
+pnpm check:vi-localization
+```
+
+The gate is deliberately scoped: it checks an explicit reviewed list of Studio locale keys, required documentation examples, and only the runtime asset paths listed in `REVIEWED_RUNTIME_ASSETS` in `scripts/check-vietnamese-localization.mjs` against the owning package's published `files`. It does not demand blanket translation of arbitrary prose, parser markers, technical IDs, or test fixtures.
+
+When adding or changing a user-facing Studio locale entry, provide its `vi` value and add the key to the checker's reviewed-key list. When a new Vietnamese runtime asset becomes part of the reviewed localization contract, add its exact repository-relative path to `REVIEWED_RUNTIME_ASSETS` and ensure the owning package publishes it. Expand an allowlist only for a specific, reviewed non-user-facing case; do not weaken the checker with broad directory or content exclusions.
+
+Content generation/project language and UI locale are separate settings:
+
+```text
+inkos init <project-name> --lang vi
+```
+
+Ngôn ngữ tạo nội dung/dự án dùng mã `vi`; ngôn ngữ giao diện TUI dùng locale `vi-VN`.
+
+```powershell
+PowerShell: $env:INKOS_TUI_LOCALE="vi-VN"; inkos tui
+```
+
+```bat
+Command Prompt: set INKOS_TUI_LOCALE=vi-VN && inkos tui
+```
+
+Use placeholders such as `<project-name>` and `<your-api-key>` in documentation and pull requests. Never paste real credentials.
 
 ## Commit Convention
 
@@ -47,6 +78,7 @@ Keep commits atomic — one logical change per commit. Split new files, interfac
 - [ ] `pnpm test` passes (all existing + new tests)
 - [ ] `pnpm typecheck` passes
 - [ ] New features have tests
+- [ ] `pnpm check:vi-localization` passes when user-facing locale entries, Vietnamese runtime assets, or designated locale docs changed
 - [ ] No unrelated formatting changes (keep diffs focused)
 - [ ] Commit messages follow the convention above
 

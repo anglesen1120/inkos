@@ -67,6 +67,47 @@ describe("analyzeAITells", () => {
     expect(listIssues[0]!.severity).toBe("info");
   });
 
+  it("emits Vietnamese prose for every AI-tell diagnostic", () => {
+    const paragraph = "Tuy nhiên, anh dường như có vẻ vẫn còn do dự trước cánh cửa";
+    const content = [paragraph, "", paragraph, "", paragraph, "", paragraph].join("\n");
+
+    const result = analyzeAITells(content, "vi");
+
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        category: "Độ dài đoạn đồng đều",
+        description: expect.stringContaining("Hệ số biến thiên độ dài đoạn"),
+        suggestion: expect.stringContaining("Tăng sự tương phản về độ dài đoạn"),
+      }),
+      expect.objectContaining({
+        category: "Mật độ từ ngữ dè dặt",
+        description: expect.stringContaining("Mật độ từ ngữ dè dặt"),
+        suggestion: expect.stringContaining("lối kể chắc chắn hơn"),
+      }),
+      expect.objectContaining({
+        category: "Chuyển ý theo công thức",
+        description: expect.stringContaining("\"tuy nhiên\"×4"),
+        suggestion: expect.stringContaining("hành động, nhịp thời gian hoặc chuyển đổi điểm nhìn"),
+      }),
+    ]));
+    expect(result.issues.every(({ category, description, suggestion }) =>
+      !/[\u3400-\u9fff]/u.test(`${category}${description}${suggestion}`),
+    )).toBe(true);
+  });
+
+  it("detects repeated Vietnamese sentence openings across Latin punctuation and newlines", () => {
+    const content = "Anh bước qua cửa. Anh nhìn quanh phòng?\nAnh gọi tên cô! Anh chờ trong im lặng.";
+
+    const result = analyzeAITells(content, "vi");
+    const listIssue = result.issues.find((issue) => issue.category === "Cấu trúc dạng liệt kê");
+
+    expect(listIssue).toEqual(expect.objectContaining({
+      severity: "info",
+      description: expect.stringContaining("4 câu liên tiếp có cùng kiểu mở đầu"),
+      suggestion: expect.stringContaining("Thay đổi cách mở đầu câu"),
+    }));
+  });
+
   it("returns no issues for content with fewer than 3 paragraphs", () => {
     const content = "只有一段话。";
     const result = analyzeAITells(content);

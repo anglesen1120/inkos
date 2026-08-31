@@ -36,6 +36,16 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).not.toContain("architect");
     });
 
+    it("Vietnamese plain chat uses Vietnamese production guidance", () => {
+      const prompt = buildAgentSystemPrompt(null, "vi");
+      expect(prompt).toContain("trợ lý trò chuyện InkOS");
+      expect(prompt).toContain("không phải bề mặt sản xuất tự động");
+      expect(prompt).toContain("propose_action");
+      expect(prompt).toContain("Không dùng emoji");
+      expect(prompt).not.toContain("general chat assistant");
+      expect(prompt).not.toContain("普通聊天助手");
+    });
+
     it("edit mode treats role cards as editable truth files", () => {
       const prompt = buildAgentSystemPrompt("my-book", "zh", "edit");
       expect(prompt).toContain("外部编辑助手");
@@ -207,6 +217,15 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).not.toContain("short_fiction_run");
       expect(prompt).not.toContain("play_start");
     });
+
+    it("Vietnamese book-create mode asks for a Vietnamese confirmation proposal", () => {
+      const prompt = buildAgentSystemPrompt(null, "vi", "book-create");
+      expect(prompt).toContain("trợ lý tạo sách InkOS");
+      expect(prompt).toContain("create_book");
+      expect(prompt).toContain("ngôn ngữ viết là vi");
+      expect(prompt).not.toContain("book creation assistant");
+      expect(prompt).not.toContain("建书助手");
+    });
   });
 
   describe("short mode", () => {
@@ -254,6 +273,15 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).not.toContain("short_fiction_run");
       expect(prompt).not.toContain("sub_agent");
       expect(prompt).not.toContain("architect");
+    });
+
+    it("Vietnamese short mode documents word-count semantics", () => {
+      const prompt = buildAgentSystemPrompt(null, "vi", "short");
+      expect(prompt).toContain("trợ lý InkOS Short");
+      expect(prompt).toContain("short_run");
+      expect(prompt).toContain("vi là 600-800 từ tiếng Việt");
+      expect(prompt).not.toContain("InkOS Short assistant");
+      expect(prompt).not.toContain("InkOS Short 助手");
     });
 
     it("fills shortRun.language from the user's requested output language instead of hardcoding the session language", () => {

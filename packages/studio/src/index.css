@@ -1,8 +1,8 @@
 /*
   InkOS Studio — Atmospheric Literary Workbench
-  Fonts: Instrument Serif (Headings/Literary), DM Sans (UI), JetBrains Mono (Data)
+  Local typography: Geist for UI, Unicode-safe system serif for prose.
 */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "@fontsource-variable/geist";
 
 @import "tailwindcss";
 
@@ -37,9 +37,10 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-serif: 'Instrument Serif', Georgia, serif;
-  --font-sans: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: Georgia, "Times New Roman", "Noto Serif", "Yu Mincho", "SimSun", serif;
+  --font-sans: "Geist Variable", "Segoe UI", "Noto Sans", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+  --font-content: "Segoe UI", "Noto Serif", Georgia, "Yu Mincho", "SimSun", serif;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -138,6 +139,17 @@ body {
   background-attachment: fixed;
   color: var(--foreground);
   transition: background 0.5s ease, color 0.5s ease;
+}
+
+/* Content must never be forced through a Chinese-only serif stack. */
+[class*="font-['SimSun'"] {
+  font-family: var(--font-content) !important;
+}
+
+/* Keep Vietnamese diacritics and CJK glyphs legible when remote fonts are unavailable. */
+html[lang="vi"] body,
+body[data-language="vi"] {
+  font-family: var(--font-sans);
 }
 
 /* ── UI readability scale ──

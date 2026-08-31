@@ -22,6 +22,7 @@ import {
   getSlashSuggestions,
   SLASH_COMMANDS,
 } from "./slash-autocomplete.js";
+import { parseTerminalPaste, readSystemClipboard } from "./paste.js";
 import {
   WARM_ACCENT, WARM_BORDER, WARM_MUTED, WARM_REPLY,
   STATUS_SUCCESS, STATUS_ERROR, STATUS_ACTIVE, STATUS_IDLE,
@@ -221,6 +222,22 @@ export function InkTuiApp(props: InkTuiAppProps): React.JSX.Element {
   });
 
   useInput((_input, key) => {
+    const pastedInput = parseTerminalPaste(_input);
+    if (pastedInput !== null) {
+      setInputValue((current) => current + pastedInput);
+      setSelectedSlashIndex(0);
+      return;
+    }
+
+    if (key.ctrl && (_input === "v" || _input === "V")) {
+      void readSystemClipboard().then((clipboard) => {
+        if (clipboard === null) return;
+        setInputValue((current) => current + clipboard);
+        setSelectedSlashIndex(0);
+      });
+      return;
+    }
+
     if (key.escape) {
       exit();
       return;

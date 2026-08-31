@@ -1,4 +1,4 @@
-export type ShortFictionLanguage = "zh" | "en";
+export type ShortFictionLanguage = "zh" | "en" | "vi";
 
 export interface ShortFictionReferencePromptInput {
   readonly text?: string;
@@ -63,6 +63,16 @@ export function buildShortFictionOutlineSystemPrompt(language: ShortFictionLangu
       "Return only the final story plan for the writer; do not place task restatement, analysis, or internal reasoning in the deliverable.",
     ].join("\n");
   }
+  if (language === "vi") {
+    return [
+      "Bạn là biên tập viên truyện ngắn tiếng Việt. Hãy biến hướng sáng tác thành kế hoạch truyện hoàn chỉnh.",
+      "Chỉ dùng hướng sáng tác và tư liệu đã cung cấp; không bịa nguồn chưa được đưa ra.",
+      "Tiêu đề, mở đầu, áp lực nhân vật, chuỗi chứng cứ, leo thang, đảo chiều và hồi đáp phải đủ để viết trọn truyện.",
+      "Viết Markdown dễ đọc, không JSON/YAML; kế hoạch phải đủ chi tiết cho người viết thực hiện một lượt.",
+      "Truyện ngắn mặc định 12-18 chương, khoảng 600-800 từ mỗi chương, và phải hoàn chỉnh.",
+      "Chỉ trả về kế hoạch cuối cùng, không đưa phân tích nội bộ vào sản phẩm.",
+    ].join("\n");
+  }
   return [
     "你是短篇小说总编，负责把一个创作方向做成完整短篇故事方案。",
     "只基于本次创作方向和用户提供的参考文本创作；没有提供的资料，不要声称读过、引用过或继承过。",
@@ -98,6 +108,17 @@ export function buildShortFictionOutlineUserPrompt(
       "The full story plan in Markdown, covering: genre/audience, title direction, the opening hook, characters and relationships, the core pressure, how the protagonist wins, the escalation chain, the reversal chain, the ending payoff, and the chapter-by-chapter plan.",
     ].filter(Boolean).join("\n");
   }
+  if (language === "vi") {
+    return [
+      "## Hướng sáng tác", input.direction, "", "## Quy cách mục tiêu",
+      `Truyện ngắn hoàn chỉnh ${input.chapterCount} chương, khoảng ${input.charsPerChapter} từ mỗi chương.`, "",
+      input.reference?.text ? "## Tư liệu tham khảo tùy chọn\n" + input.reference.text.trim() + "\n" : "",
+      "## Sản phẩm cần giao",
+      "Bắt đầu bằng một tiêu đề có sức bấm, rồi viết kế hoạch đầy đủ: áp lực, hồi đáp độc giả chờ đợi, cách lật ngược thế cờ, chuỗi chứng cứ/quan hệ/danh tính, phản công và kết thúc.",
+      "Kế hoạch phải ghi rõ từng chương: hướng tiêu đề, cảnh chính, hành động nhân vật, leo thang hoặc hồi đáp, và lý do đọc tiếp.",
+      "## Định dạng đầu ra", "=== SHORT_FICTION_PLAN_TITLE ===", "Một tiêu đề trên một dòng", "=== SHORT_FICTION_PLAN ===", "Kế hoạch truyện đầy đủ bằng Markdown.",
+    ].filter(Boolean).join("\n");
+  }
   return [
     "## 创作方向",
     input.direction,
@@ -128,6 +149,14 @@ export function buildShortFictionOutlineReviewSystemPrompt(language: ShortFictio
       "Output Markdown. Name the flaws that would make the finished draft fall flat, and the strengths worth keeping.",
     ].join("\n");
   }
+  if (language === "vi") {
+    return [
+      "Bạn là biên tập viên phản biện đề cương truyện ngắn. Bạn không chấm điểm và không soát đạo văn.",
+      "Việc của bạn là đánh giá kế hoạch này có đủ sức chở một bản thảo hoàn chỉnh viết trong một lượt hay không: động cơ thể loại có rõ, động cơ nhân vật có vững, chuỗi áp lực có leo thang, phản công của phản diện có đáng tin, hồi đáp kết thúc có đủ lớn hay không.",
+      "Hãy đọc như một độc giả và biên tập viên thật sự, đừng rà theo danh sách kiểm tra.",
+      "Xuất Markdown. Chỉ ra những lỗi sẽ làm bản thảo hoàn chỉnh nhạt nhòa và những điểm mạnh đáng giữ.",
+    ].join("\n");
+  }
   return [
     "你是短篇审纲编辑。你不负责打分，也不负责判抄。",
     "你的任务是判断这个故事方案能不能支撑一次写完整篇：题材发动机是否清楚、人物动机是否成立、压力链是否递进、反派反扑是否可信、结尾回报是否够。",
@@ -155,6 +184,23 @@ export function buildShortFictionOutlineReviewUserPrompt(
       "- Is the outline dense enough, or will the writer run out of material in the back half?",
       "- Do the key scenes contain character action, counterattack, and payoff, instead of bare result summaries?",
       "- Will readers be thrown out of the story by timeline, relationship, evidence-access, physical-state, or common-sense problems?",
+    ].filter(Boolean).join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "## Hướng sáng tác",
+      input.direction,
+      "",
+      input.reference?.text ? "## Tư liệu tham khảo tùy chọn\n" + input.reference.text.trim() + "\n" : "",
+      "## Bản kế hoạch cần xét",
+      input.outline.rawContent,
+      "",
+      "## Trọng tâm đánh giá",
+      "- Đây có phải là truyện ngắn hoàn chỉnh, không phải bản thử một phần?",
+      "- Tiêu đề, mở đầu và ba chương đầu có cho độc giả lý do để bấm vào và đọc tiếp?",
+      "- Đề cương có đủ đặc để người viết không cạn chất liệu ở nửa sau?",
+      "- Các cảnh chính có hành động nhân vật, phản công và hồi đáp, thay vì chỉ là tóm tắt kết quả trần trụi?",
+      "- Độc giả có bị văng ra khỏi truyện vì vấn đề mạch thời gian, quan hệ, khả năng tiếp cận chứng cứ, trạng thái cơ thể hoặc phi lô-gíc thường gặp?",
     ].filter(Boolean).join("\n");
   }
   return [
@@ -195,6 +241,23 @@ export function buildShortFictionOutlineRevisionFollowup(
       "The complete second-version story plan in Markdown.",
     ].join("\n");
   }
+  if (language === "vi") {
+    return [
+      "Từ ý kiến phản biện đề cương ở trên, hãy đưa ra bản kế hoạch truyện hoàn chỉnh thứ hai.",
+      "Đây là vòng hai của cùng một sáng tác: đừng bắt đầu lại từ đầu, và đừng chỉ liệt kê các sửa đổi thay vì bản kế hoạch.",
+      `Giữ cấu trúc ${input.chapterCount} chương, mỗi chương khoảng ${input.charsPerChapter} từ.`,
+      "Giữ động cơ thể loại và quan hệ đang hiệu quả; sửa những lỗi sẽ làm bản thảo hoàn chỉnh nhạt nhòa.",
+      "",
+      "## Ý kiến phản biện đề cương",
+      input.review.trim(),
+      "",
+      "## Định dạng đầu ra",
+      "=== SHORT_FICTION_PLAN_TITLE ===",
+      "Chỉ một tiêu đề có sức bấm trên một dòng",
+      "=== SHORT_FICTION_PLAN ===",
+      "Bản kế hoạch truyện hoàn chỉnh thứ hai bằng Markdown.",
+    ].join("\n");
+  }
   return [
     "根据上面的审纲意见，继续给出第二版完整故事方案。",
     "这是同一次创作的第二轮，不要另起炉灶，不要只写修改说明。",
@@ -222,6 +285,15 @@ export function buildShortFictionWriterSystemPrompt(language: ShortFictionLangua
       "The story title and chapter titles must read like platform content, not literary summaries. Keep the prose paced for mobile reading — short paragraphs, but never telegram-style fragments.",
       "The word count is a calibration, not an averaging exercise. Big scenes may run long and transitions short; a clearly short chapter usually means you wrote a synopsis and must add real scenes.",
       "Output must strictly use the specified blocks. No author notes, no word-count remarks, no review comments, no format explanations.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "Bạn là BatchWriter truyện ngắn tiếng Việt. Viết toàn bộ truyện trong một lượt API theo kế hoạch.",
+      "Viết văn xuôi tiếng Việt tự nhiên, nhịp điệu bản ngữ; mỗi chương có hành động, đối thoại/phản ứng, chuyển biến và lý do đọc tiếp.",
+      "Đây không phải tóm tắt. Tiêu đề và văn xuôi phải phù hợp nền tảng, đoạn ngắn nhưng không vụn.",
+      "Số từ là chuẩn hiệu chỉnh; cảnh lớn có thể dài hơn, chương quá ngắn cần bổ sung cảnh thật.",
+      "Dùng đúng các block chỉ định, không ghi chú tác giả hay giải thích định dạng.",
     ].join("\n");
   }
   return [
@@ -265,6 +337,18 @@ export function buildShortFictionWriterUserPrompt(
           `=== CHAPTER ${chapter} CONTENT ===`,
           `Chapter ${chapter} prose — full scenes, no synopsis, no author notes`,
         ].join("\n");
+      }),
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "## Nhiệm vụ", `Viết toàn bộ truyện ${input.chapterCount} chương trong một lượt, khoảng ${input.charsPerChapter} từ mỗi chương.`,
+      "Đọc toàn bộ kế hoạch trước khi viết; giữ chuỗi áp lực, chứng cứ, đảo chiều và hồi đáp cảm xúc.", "", buildShortFictionCraftPrompt("vi"),
+      "", "## Hướng sáng tác", input.direction, "", "## Kế hoạch truyện", input.outlineMarkdown, "", "## Định dạng đầu ra",
+      "=== SHORT_FICTION_TITLE ===", "Tiêu đề truyện — văn bản thuần", "=== SHORT_FICTION_OPENING_HOOK ===", "Móc mở đầu khoảng 130 từ",
+      ...Array.from({ length: input.chapterCount }, (_, index) => {
+        const chapter = index + 1;
+        return [`=== CHAPTER ${chapter} TITLE ===`, "Tiêu đề chương — văn bản thuần", `=== CHAPTER ${chapter} CONTENT ===`, `Văn xuôi chương ${chapter} — cảnh đầy đủ`].join("\n");
       }),
     ].join("\n");
   }
@@ -330,6 +414,33 @@ export function buildShortFictionDraftContinuationUserPrompt(
       ].join("\n")),
     ].join("\n");
   }
+  if (language === "vi") {
+    return [
+      "## Nhiệm vụ",
+      `Bản trước bị cắt hoặc thiếu chương. Chỉ viết những chương còn thiếu: ${missing}.`,
+      `Vẫn giữ chuẩn truyện ngắn hoàn chỉnh ${input.chapterCount} chương, khoảng ${input.charsPerChapter} từ mỗi chương.`,
+      "Không viết lại chương đã hoàn thành, không viết ghi chú tóm tắt, không xin lỗi, không đưa nhận xét đánh giá.",
+      "",
+      buildShortFictionCraftPrompt("vi"),
+      "",
+      "## Hướng sáng tác",
+      input.direction,
+      "",
+      "## Kế hoạch truyện",
+      input.outlineMarkdown,
+      "",
+      "## Bản thảo hiện có (chỉ để nối mạch, không viết lại)",
+      input.existingDraftMarkdown,
+      "",
+      "## Định dạng đầu ra",
+      ...input.missingChapters.map((chapter) => [
+        `=== CHAPTER ${chapter} TITLE ===`,
+        "Tiêu đề chương — văn bản thuần, không #, không tiền tố Chương N",
+        `=== CHAPTER ${chapter} CONTENT ===`,
+        `Văn xuôi chương ${chapter} — cảnh đầy đủ, không tóm tắt, không ghi chú tác giả`,
+      ].join("\n")),
+    ].join("\n");
+  }
   return [
     "## 任务",
     `上一次正文被截断或漏章。现在只补写缺失章节：${missing}。`,
@@ -366,6 +477,14 @@ export function buildShortFictionDraftReviewSystemPrompt(language: ShortFictionL
       "Output Markdown. Separate the problems that would visibly stop readers from reading on from the small blemishes that are acceptable.",
     ].join("\n");
   }
+  if (language === "vi") {
+    return [
+      "Bạn là biên tập viên duyệt bản thảo truyện ngắn.",
+      "Bạn chỉ đánh giá nội dung có bán được không, có mượt không, có kéo độc giả đọc tiếp không; đừng biến bài duyệt thành chấm điểm máy móc.",
+      "Tập trung vào: tiêu đề, tiêu đề chương, mở đầu, động cơ nhân vật, mạch thời gian, quan hệ, chứng cứ và quyền tiếp cận, áp lực leo thang, phản công của phản diện, nửa sau có chùng hay không, hồi đáp cuối có đáp xuống hay không.",
+      "Xuất Markdown. Tách riêng vấn đề sẽ khiến độc giả dừng đọc ngay với những vết nhỏ chấp nhận được.",
+    ].join("\n");
+  }
   return [
     "你是短篇成稿审稿编辑。",
     "你只看内容是否能卖、是否顺、是否有继续读的欲望；不要把审稿变成确定性打分。",
@@ -392,6 +511,22 @@ export function buildShortFictionDraftReviewUserPrompt(
       "## Review Instructions",
       "Talk like a person: where does this story pull, where does it break immersion, where does it read like a synopsis, where does the back half sag, which title or chapter titles would nobody tap?",
       "Never condemn a chapter just for running slightly short or long; judge first whether the content is complete, dramatic, and paying off.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "## Hướng sáng tác",
+      input.direction,
+      "",
+      "## Kế hoạch truyện gốc",
+      input.outlineMarkdown,
+      "",
+      "## Bản thảo cần duyệt",
+      input.draftMarkdown,
+      "",
+      "## Yêu cầu duyệt",
+      "Nói như người thật: chỗ nào truyện kéo được độc giả, chỗ nào văng khỏi mạch, chỗ nào đọc như tóm tắt, chỗ nào nửa sau chùng, tiêu đề hay tiêu đề chương nào không ai buồn bấm?",
+      "Đừng kết tội một chương chỉ vì hơi ngắn hoặc hơi dài; xét trước tiên nội dung có đầy đủ, có kịch tính, có hồi đáp hay không.",
     ].join("\n");
   }
   return [
@@ -445,6 +580,37 @@ export function buildShortFictionDraftRevisionFollowup(
       }),
     ].join("\n");
   }
+  if (language === "vi") {
+    return [
+      "Theo ý kiến duyệt, hãy viết bản thảo hoàn chỉnh thứ hai.",
+      "Đây là vòng hai của cùng một truyện: giữ những gì đã hiệu quả, sửa những gì làm độc giả văng khỏi mạch hoặc mất hứng đọc tiếp.",
+      "Đừng chỉ liệt kê các gợi ý sửa, và đừng vá vài chương — phải xuất bản thảo đầy đủ.",
+      "",
+      "## Ý kiến duyệt",
+      input.review.trim(),
+      "",
+      "## Ưu tiên vòng hai",
+      "- Sửa các vấn đề phá vỡ nhập vai: mạch thời gian, lô-gíc, quan hệ, quyền tiếp cận chứng cứ, trạng thái cơ thể.",
+      "- Bổ sung cảnh thật cho nửa sau; không bao giờ đóng lại bằng tóm tắt kết quả.",
+      "- Giữ tiêu đề, mở đầu, tiêu đề chương và tiêu đề chính nhất quán với văn xuôi; tiêu đề có thể được mài lại từ bản thảo cuối để bấm hơn trên nền tảng.",
+      "- Số từ chỉ để hiệu chỉnh: chương ngắn thì thêm cảnh thật, chương dài thì cắt bớt giải thích và phản ứng lặp lại.",
+      "",
+      "## Định dạng đầu ra",
+      "=== SHORT_FICTION_TITLE ===",
+      "Tiêu đề truyện — văn bản thuần, có sức bấm, không gì khác",
+      "=== SHORT_FICTION_OPENING_HOOK ===",
+      "Móc mở đầu trước truyện khoảng 130 từ; nếu không cần teaser riêng, vẫn viết cảnh nhỏ chiếm màn hình đầu mở chương 1",
+      ...Array.from({ length: input.chapterCount }, (_, index) => {
+        const chapter = index + 1;
+        return [
+          `=== CHAPTER ${chapter} TITLE ===`,
+          "Tiêu đề chương — văn bản thuần, không #, không tiền tố Chương N",
+          `=== CHAPTER ${chapter} CONTENT ===`,
+          `Văn xuôi chương ${chapter} — cảnh đầy đủ, không tóm tắt, không ghi chú tác giả`,
+        ].join("\n");
+      }),
+    ].join("\n");
+  }
   return [
     "根据审稿意见，继续写第二版完整正文。",
     "这是同一篇的第二轮写作：保留上一版能打的地方，修掉会让读者出戏或不想读的问题。",
@@ -484,6 +650,13 @@ export function buildShortFictionPackageSystemPrompt(language: ShortFictionLangu
       "Think of the cover prompt as a mobile portrait book cover: 3:4 vertical, a large title zone, strong character emotion, one or two instantly recognizable props, high-contrast colors — not a movie poster.",
     ].join("\n");
   }
+  if (language === "vi") {
+    return [
+      "Bạn là biên tập viên đóng gói truyện ngắn. Từ bản thảo cuối, hãy tạo tóm tắt, điểm bán và prompt ảnh bìa.",
+      "Không được bịa một tiêu đề chính khác với bản thảo. Mọi nội dung đóng gói phải xoay quanh đúng tiêu đề và cốt truyện của bản thảo.",
+      "Hãy nghĩ prompt bìa như bìa sách dọc trên điện thoại: 3:4, vùng tiêu đề lớn, cảm xúc nhân vật mạnh, một hai đạo cụ nhận ra ngay, màu tương phản cao — không phải poster phim.",
+    ].join("\n");
+  }
   return [
     "你是短篇小说包装编辑，负责根据最终正文生成简介、卖点和封面提示词。",
     "不要另起一个和正文不同的主标题。包装必须围绕正文实际标题和剧情。",
@@ -515,6 +688,28 @@ export function buildShortFictionPackageUserPrompt(
       "- 3 to 6 selling points, one per line",
       "=== SHORT_FICTION_COVER_PROMPT ===",
       "An English cover-generation prompt: 3:4 portrait, main title zone, character emotion, props, color palette, typography style, and what to avoid.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "## Hướng sáng tác",
+      input.direction,
+      "",
+      "## Kế hoạch truyện",
+      input.outlineMarkdown.trim(),
+      "",
+      "## Bản thảo cuối",
+      input.draftMarkdown.trim(),
+      "",
+      "## Định dạng đầu ra",
+      "=== SHORT_FICTION_PACKAGE_TITLE ===",
+      input.draftTitle,
+      "=== SHORT_FICTION_INTRO ===",
+      "Tóm tắt 70-120 từ cho nền tảng, nắm lấy xung đột, áp lực và hồi đáp — không kể trọn truyện thành dòng kể lể nhàm.",
+      "=== SHORT_FICTION_SELLING_POINTS ===",
+      "- 3 đến 6 điểm bán, mỗi điểm một dòng",
+      "=== SHORT_FICTION_COVER_PROMPT ===",
+      "Prompt tạo ảnh bìa tiếng Việt: 3:4 dọc, vùng tiêu đề chính, cảm xúc nhân vật, đạo cụ, bảng màu, kiểu chữ và điều cần tránh.",
     ].join("\n");
   }
   return [
@@ -553,6 +748,11 @@ function buildShortFictionCraftPrompt(language: ShortFictionLanguage = "zh"): st
       "- Side characters need motives: even the oppressor acts from interest, misjudgment, or fear — never a brainless plot device.",
       "- Everyday detail must become bait: each detail carries evidence, emotion, characterization, or a later reversal.",
       "- Mobile-first: short paragraphs, dense information, no vague lyricism or decorative filler.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "## Nhắc nhở kỹ thuật viết", "- Giá trị và tham vọng hiện qua hành động, không qua khẩu hiệu.", "- Dùng hành vi, chứng cứ, chi tiết cụ thể và dàn cảnh thay vì kể lể.", "- Tiết chế so sánh; ưu tiên động từ chính xác và hành động cụ thể.", "- Mỗi cảnh phải đẩy xung đột, nhân quả, cảm xúc, chứng cứ, áp lực, hồi đáp hoặc quan hệ.", "- Cao trào phải diễn ra từng nhịp trên trang, không tóm tắt.", "- Mọi đảo chiều và hồi đáp cần có chuỗi chứng cứ, nhân quả được cài trước.", "- Nhân vật phụ cần động cơ rõ ràng.", "- Ưu tiên đoạn ngắn, thông tin đặc cho đọc trên di động.",
     ].join("\n");
   }
   return [

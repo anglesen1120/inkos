@@ -1,3 +1,4 @@
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -1095,6 +1096,31 @@ describe("createStudioServer daemon lifecycle", () => {
     });
   });
 
+  it("accepts and persists Vietnamese project language aliases", async () => {
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+
+    const save = await app.request("http://localhost/api/v1/project/language", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language: "vi_VN.UTF-8" }),
+    });
+
+    expect(save.status).toBe(200);
+    await expect(save.json()).resolves.toMatchObject({ ok: true, language: "vi" });
+
+    const project = await app.request("http://localhost/api/v1/project");
+    await expect(project.json()).resolves.toMatchObject({
+      language: "vi",
+      languageExplicit: true,
+    });
+  });
+
+  it("requires Vietnamese copy when selecting the Vietnamese locale", async () => {
+    const { pick } = await import("./server.js");
+    expect(pick("vi", "中文回退", "English fallback", "Bản dịch tiếng Việt")).toBe("Bản dịch tiếng Việt");
+  });
+
   it("writes parseable custom genre frontmatter when user text contains YAML punctuation", async () => {
     const { createStudioServer } = await import("./server.js");
     const app = createStudioServer(cloneProjectConfig() as never, root);
@@ -1812,6 +1838,39 @@ describe("createStudioServer daemon lifecycle", () => {
       ok: false,
       error: expect.stringContaining("Could not determine a model automatically"),
     });
+  });
+  it("returns Vietnamese probe errors without Chinese fallback when the project language is vi", async () => {
+    await writeFile(join(root, "inkos.json"), JSON.stringify({
+      ...projectConfig,
+      language: "vi",
+      llm: {
+        configSource: "env",
+        services: [
+          { service: "moonshot", name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1" },
+        ],
+      },
+    }, null, 2), "utf-8");
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: async () => "404 page not found",
+    }) as typeof fetch);
+    createLLMClientMock.mockImplementation(((cfg: unknown) => cfg) as unknown as typeof createLLMClientMock);
+    chatCompletionMock.mockRejectedValue(new Error("probe failed"));
+
+    const { createStudioServer } = await import("./server.js");
+    const app = createStudioServer(cloneProjectConfig() as never, root);
+    const response = await app.request("http://localhost/api/v1/services/moonshot/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey: "sk-moonshot", baseUrl: "https://api.moonshot.cn/v1", apiFormat: "chat", stream: true }),
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json() as { error?: string };
+    expect(payload.error).toContain("Kiểm tra kết nối moonshot thất bại.");
+    expect(payload.error).not.toContain("测试连接失败");
   });
 
   it("returns an English empty-API-key error when the project language is en", async () => {

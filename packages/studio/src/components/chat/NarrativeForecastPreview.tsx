@@ -76,20 +76,20 @@ export function getNarrativeForecastPreviewDetails(exec: ToolExecution): Narrati
 export function buildNarrativeForecastSelectionInstruction(
   forecastId: string,
   branchId: string,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): string {
-  return language === "zh"
-    ? `请调用 select_narrative_branch，选择推演 ${forecastId} 的 ${branchId}。只保存候选计划，不修改正文、大纲或正史状态。`
-    : `Call select_narrative_branch for ${branchId} in forecast ${forecastId}. Save only the candidate plan; do not modify prose, outlines, or canonical state.`;
+  if (language === "zh") return `请调用 select_narrative_branch，选择推演 ${forecastId} 的 ${branchId}。只保存候选计划，不修改正文、大纲或正史状态。`;
+  if (language === "vi") return `Hãy gọi select_narrative_branch cho nhánh ${branchId} trong dự báo ${forecastId}. Chỉ lưu kế hoạch ứng viên; không sửa bản thảo, dàn ý hoặc trạng thái chính sử.`;
+  return `Call select_narrative_branch for ${branchId} in forecast ${forecastId}. Save only the candidate plan; do not modify prose, outlines, or canonical state.`;
 }
 
 export function buildNarrativeForecastRecheckInstruction(
   forecastId: string,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): string {
-  return language === "zh"
-    ? `请调用 get_narrative_forecast，重新核验推演 ${forecastId} 是否已经过期。`
-    : `Call get_narrative_forecast for forecast ${forecastId} and report whether it is stale.`;
+  if (language === "zh") return `请调用 get_narrative_forecast，重新核验推演 ${forecastId} 是否已经过期。`;
+  if (language === "vi") return `Hãy gọi get_narrative_forecast cho dự báo ${forecastId} và báo cáo dự báo có còn mới hay đã cũ.`;
+  return `Call get_narrative_forecast for forecast ${forecastId} and report whether it is stale.`;
 }
 
 const RISK_LABELS: Record<ForecastRisk["kind"], readonly [string, string]> = {

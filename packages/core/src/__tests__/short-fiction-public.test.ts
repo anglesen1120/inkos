@@ -309,4 +309,36 @@ describe("public short-fiction chain", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("uses Vietnamese prose for a standalone cover prompt", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-cover-vi-"));
+    const originalFetch = globalThis.fetch;
+    process.env.INKOS_TEST_COVER_KEY = "sk-cover";
+    try {
+      const fetchMock = vi.fn(async (_input: Parameters<typeof fetch>[0], _init?: Parameters<typeof fetch>[1]) => new Response(JSON.stringify({
+        data: [{ b64_json: "ZmFrZQ==" }],
+      }), { status: 200, headers: { "content-type": "application/json" } }));
+      globalThis.fetch = fetchMock as never;
+
+      await generateShortFictionCover({
+        projectRoot: root,
+        title: "Đêm ở tầng mười ba",
+        intro: "Cánh cửa mở ra một tầng không tồn tại.",
+        sellingPoints: ["Bí ẩn", "Phản công"],
+        coverPrompt: "Cửa thang máy mở giữa hành lang tối.",
+        language: "vi",
+        outputDir: "covers/vietnamese",
+        coverEndpoint: "https://images.example.test/v1/images/generations",
+        coverApiKeyEnv: "INKOS_TEST_COVER_KEY",
+      });
+
+      const body = String(fetchMock.mock.calls[0]?.[1]?.body ?? "");
+      expect(body).toContain("Hãy tạo ảnh bìa từ tiêu đề, phần tóm tắt, các điểm nổi bật và ghi chú hình ảnh do người dùng cung cấp.");
+      expect(body).toContain("Tiêu đề: Đêm ở tầng mười ba");
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.INKOS_TEST_COVER_KEY;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

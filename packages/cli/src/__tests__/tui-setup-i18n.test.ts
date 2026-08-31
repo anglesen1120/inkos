@@ -13,9 +13,21 @@ describe("tui setup i18n", () => {
     expect(copy.scopeChoices.project).toBe("当前目录");
   });
 
+  it("builds Vietnamese setup copy", () => {
+    const copy = buildInteractiveSetupCopy("vi-VN");
+    expect(copy.title).toBe("Cấu hình LLM");
+    expect(copy.subtitle).toContain("nhà cung cấp model");
+    expect(copy.steps.provider).toBe("Nhà cung cấp");
+    expect(copy.hints.provider).toContain("kkaiapi");
+    expect(copy.hints.apiKey).not.toMatch(/kkaiapi/i);
+    expect(copy.steps.scope).toBe("Phạm vi lưu");
+    expect(copy.scopeChoices.project).toBe("thư mục này");
+  });
+
   it("builds localized auto-init messages", () => {
     expect(buildAutoInitMessages("山海", "zh-CN").initializing).toContain("正在初始化项目：山海");
     expect(buildAutoInitMessages("harbor", "en").initialized).toContain("Project initialized");
+    expect(buildAutoInitMessages("ben-suong", "vi-VN").initialized).toContain("Dự án đã khởi tạo");
   });
 
   it("uses Anthropic protocol for Kimi Code base URLs even when the user picked custom", () => {

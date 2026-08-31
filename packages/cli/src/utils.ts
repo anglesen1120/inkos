@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createLLMClient, StateManager, createLogger, createStderrSink, createJsonLineSink, resolveEffectiveLLMConfig, loadLLMEnvLayers, GLOBAL_CONFIG_DIR, GLOBAL_ENV_PATH, type EffectiveLLMConfigResult, type LLMConfigCliOverrides, type ProjectConfig, type PipelineConfig, type LogSink } from "@actalk/inkos-core";
+import { formatCliNoBooks, resolveCliLanguage } from "./localization.js";
 
 export { GLOBAL_CONFIG_DIR, GLOBAL_ENV_PATH };
 
@@ -180,9 +181,7 @@ export async function resolveBookId(
   }
 
   if (books.length === 0) {
-    throw new Error(
-      "No books found. Create one first:\n  inkos book create --title '...' --genre xuanhuan",
-    );
+    throw new Error(`${formatCliNoBooks(resolveCliLanguage())}\n  inkos book create --title '...' --genre xuanhuan`);
   }
   if (books.length === 1) {
     return books[0]!;

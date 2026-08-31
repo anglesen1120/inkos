@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ContinuityAuditor } from "../agents/continuity.js";
+import { ContinuityAuditor, type AuditResult } from "../agents/continuity.js";
 
 const ZERO_USAGE = {
   promptTokens: 0,
@@ -79,6 +79,30 @@ describe("ContinuityAuditor", () => {
     });
   });
 
+  it("uses a Vietnamese fallback category for JSON audit issues without one", () => {
+    const auditor = new ContinuityAuditor({
+      client: {
+        provider: "openai",
+        apiFormat: "chat",
+        stream: false,
+        defaults: { temperature: 0.7, maxTokens: 4096, thinkingBudget: 0, extra: {} },
+      },
+      model: "test-model",
+      projectRoot: "/tmp/inkos-auditor-vi-category-test",
+    });
+
+    // Test-only access to the parser seam; public audit calls exercise the same implementation.
+    const auditParser = auditor as unknown as {
+      parseAuditResult(json: string, language: "zh" | "en" | "vi"): AuditResult;
+    };
+    const result = auditParser.parseAuditResult(JSON.stringify({
+      passed: false,
+      issues: [{ severity: "warning", description: "Thiếu nhãn phân loại." }],
+    }), "vi");
+
+    expect(result.issues[0]).toMatchObject({ category: "Chưa phân loại" });
+  });
+
   it("prefers book language override when building audit prompts", async () => {
     const root = await mkdtemp(join(tmpdir(), "inkos-auditor-lang-test-"));
     const bookDir = join(root, "book");
@@ -149,6 +173,95 @@ describe("ContinuityAuditor", () => {
 
       expect(systemPrompt).toContain("ALL OUTPUT MUST BE IN ENGLISH");
       expect(systemPrompt).toContain("PROJECT AUDITOR OVERRIDE");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("localizes Vietnamese audit prompts without Chinese control prose", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-auditor-vi-prompt-test-"));
+    const bookDir = join(root, "book");
+    const storyDir = join(bookDir, "story");
+    await mkdir(storyDir, { recursive: true });
+
+    await Promise.all([
+      writeFile(join(bookDir, "book.json"), JSON.stringify({
+        id: "vietnamese-book", title: "Hồ sơ phố cổ", genre: "other", platform: "other",
+        chapterWordCount: 800, targetChapters: 60, status: "active", language: "vi",
+        createdAt: "2026-08-31T00:00:00.000Z", updatedAt: "2026-08-31T00:00:00.000Z",
+      }), "utf-8"),
+      writeFile(join(storyDir, "current_state.md"), "# Trạng thái hiện tại\n\n- Mai giữ chìa khóa nhà kho.\n", "utf-8"),
+      writeFile(join(storyDir, "pending_hooks.md"), "# Hook đang chờ\n", "utf-8"),
+      writeFile(join(storyDir, "chapter_summaries.md"), "# Tóm tắt chương\n", "utf-8"),
+      writeFile(join(storyDir, "subplot_board.md"), "# Tuyến phụ\n", "utf-8"),
+      writeFile(join(storyDir, "emotional_arcs.md"), "# Cung cảm xúc\n", "utf-8"),
+      writeFile(join(storyDir, "character_matrix.md"), "# Ma trận nhân vật\n", "utf-8"),
+      writeFile(join(storyDir, "style_guide.md"), "# Văn phong\n", "utf-8"),
+    ]);
+
+    const auditor = new ContinuityAuditor({ client: { provider: "openai", apiFormat: "chat", stream: false, defaults: { temperature: 0.7, maxTokens: 4096, thinkingBudget: 0, extra: {} } }, model: "test-model", projectRoot: root });
+    const chatSpy = vi.spyOn(ContinuityAuditor.prototype as never, "chat" as never).mockResolvedValue({ content: JSON.stringify({ passed: true, issues: [], summary: "ổn" }), usage: ZERO_USAGE });
+
+    try {
+      await auditor.auditChapter(bookDir, "Nội dung chương.", 1, "other", {
+        chapterIntent: "# Ý định chương\n\n## Mục tiêu\nMai phải giữ chìa khóa.",
+        contextPackage: {
+          chapter: 1,
+          selectedContext: [{ source: "story/pending_hooks.md#key", reason: "Theo dõi chìa khóa", excerpt: "Chìa khóa chưa tìm thấy." }],
+        },
+        ruleStack: {
+          layers: [],
+          sections: { hard: ["current_state"], soft: ["current_focus"], diagnostic: ["continuity_audit"] },
+          overrideEdges: [],
+          activeOverrides: [{ from: "current_focus", to: "chapter_intent", reason: "Ưu tiên mục tiêu chương", target: "goal" }],
+        },
+      });
+      const messages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ content: string }> | undefined;
+      const systemPrompt = messages?.[0]?.content ?? "";
+      const userPrompt = messages?.[1]?.content ?? "";
+
+      expect(systemPrompt).toContain("biên tập viên cấu trúc");
+      expect(systemPrompt).toContain("Kiểm tra móc truyện");
+      expect(systemPrompt).toContain('"repair_scope"');
+      expect(systemPrompt).not.toContain("你是一位严格的");
+      expect(systemPrompt).not.toContain("审稿边界");
+      expect(userPrompt).toContain("Hãy rà soát Chương 1.");
+      expect(userPrompt).toContain("## Thẻ trạng thái hiện tại");
+      expect(userPrompt).toContain("## Đầu vào kiểm soát chương");
+      expect(userPrompt).toContain("### Ngữ cảnh đã chọn");
+      expect(userPrompt).toContain("### Ngăn xếp quy tắc");
+      expect(userPrompt).toContain("### Ghi đè đang hoạt động");
+      expect(userPrompt).not.toContain("## 本章控制输入");
+      expect(userPrompt).not.toContain("### 已选上下文");
+      expect(userPrompt).not.toContain("请审查第1章");
+      expect(userPrompt).not.toContain("## 当前状态卡");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("renders Vietnamese fallbacks when sparse audit context files are missing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inkos-auditor-vi-sparse-test-"));
+    const bookDir = join(root, "book");
+    await mkdir(join(bookDir, "story"), { recursive: true });
+    await writeFile(join(bookDir, "book.json"), JSON.stringify({
+      id: "vietnamese-sparse-book", title: "Hồ sơ thưa", genre: "other", platform: "other",
+      chapterWordCount: 800, targetChapters: 60, status: "active", language: "vi",
+      createdAt: "2026-08-31T00:00:00.000Z", updatedAt: "2026-08-31T00:00:00.000Z",
+    }), "utf-8");
+
+    const auditor = new ContinuityAuditor({ client: { provider: "openai", apiFormat: "chat", stream: false, defaults: { temperature: 0.7, maxTokens: 4096, thinkingBudget: 0, extra: {} } }, model: "test-model", projectRoot: root });
+    const chatSpy = vi.spyOn(ContinuityAuditor.prototype as never, "chat" as never).mockResolvedValue({ content: JSON.stringify({ passed: true, issues: [], summary: "ổn" }), usage: ZERO_USAGE });
+
+    try {
+      await auditor.auditChapter(bookDir, "Nội dung chương.", 1, "other");
+      const messages = chatSpy.mock.calls[0]?.[0] as ReadonlyArray<{ content: string }> | undefined;
+      const userPrompt = messages?.[1]?.content ?? "";
+
+      expect(userPrompt).toContain("Chưa có trạng thái hiện tại.");
+      expect(userPrompt).toContain("Chưa có hướng dẫn văn phong.");
+      expect(userPrompt).not.toContain("（文件不存在）");
+      expect(userPrompt).not.toContain("（无文风指南）");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -15,3 +15,7 @@ Apply this method inside the active architect, writer, auditor, or reviser opera
 - End a chapter after a material change or fresh pressure, not with a mechanical cliffhanger formula. Show the after-effect of major payoffs before starting another escalation cycle.
 - Use references as evidence for craft or facts only. Do not reproduce source wording, names, scene order, or signature combinations.
 - During review or revision, diagnose and repair the smallest layer that actually causes the problem. A formatting failure is not evidence that the prose is bad.
+
+## Hướng dẫn đầu ra tiếng Việt
+
+Khi ngôn ngữ đầu ra hoặc ngôn ngữ đích là `vi` hay `vi-VN`, viết văn xuôi và lời thoại tiếng Việt tự nhiên, dùng dấu câu và dấu thanh đầy đủ. Giữ nguyên tên riêng; chọn danh xưng, cách xưng hô và đại từ theo tuổi tác, vai vế, mức độ thân mật, quan hệ và quyền lực trong từng cảnh. Khi hoàn cảnh thay đổi, chỉ đổi cách xưng hô nếu diễn biến truyện tạo ra lý do rõ ràng; không dịch operation, tool, schema, parser, provider, segment hoặc các định danh máy.

@@ -66,7 +66,7 @@ export interface ShortFictionRunOptions {
   readonly storyId?: string;
   readonly outDir?: string;
   readonly chapterCount?: number;
-  // Per-chapter length in the language's native unit: zh characters or en words.
+  // Per-chapter length in the language's native unit: zh characters or en/vi words.
   readonly charsPerChapter?: number;
   readonly language?: ShortFictionLanguage;
   readonly cover?: boolean;
@@ -172,21 +172,21 @@ async function produceShort(
     SHORT_FICTION_MIN_CHAPTERS,
     SHORT_FICTION_MAX_CHAPTERS,
   );
-  // charsPerChapter is the language's native unit: zh chars (900-1200) or en words (600-800).
-  const charsPerChapter = language === "en"
+  // charsPerChapter is the language's native unit: zh chars (900-1200) or en/vi words (600-800).
+  const charsPerChapter = language === "zh"
     ? boundedInteger(
-        options.charsPerChapter,
-        SHORT_FICTION_EN_DEFAULT_WORDS_PER_CHAPTER,
-        "charsPerChapter",
-        SHORT_FICTION_EN_MIN_WORDS_PER_CHAPTER,
-        SHORT_FICTION_EN_MAX_WORDS_PER_CHAPTER,
-      )
-    : boundedInteger(
         options.charsPerChapter,
         SHORT_FICTION_DEFAULT_CHARS_PER_CHAPTER,
         "charsPerChapter",
         SHORT_FICTION_MIN_CHARS_PER_CHAPTER,
         SHORT_FICTION_MAX_CHARS_PER_CHAPTER,
+      )
+    : boundedInteger(
+        options.charsPerChapter,
+        SHORT_FICTION_EN_DEFAULT_WORDS_PER_CHAPTER,
+        "charsPerChapter",
+        SHORT_FICTION_EN_MIN_WORDS_PER_CHAPTER,
+        SHORT_FICTION_EN_MAX_WORDS_PER_CHAPTER,
       );
 
   // Resume the (3-stage) outline from disk if v002 already exists for this id —
@@ -257,15 +257,25 @@ async function produceShort(
             "",
             outlineRevisionWarning,
           ].join("\n")
-        : [
-            "# 第二版大纲未采用",
-            "",
-            "可用的第一版大纲继续生效；可选修订没有完整结束，系统没有用残缺输出覆盖它。",
-            "",
-            "## 原因",
-            "",
-            outlineRevisionWarning,
-          ].join("\n"));
+        : language === "vi"
+          ? [
+              "# Bản sửa dàn ý chưa được áp dụng",
+              "",
+              "Bản dàn ý đầu tiên hoàn chỉnh vẫn là bản chính thức vì lần sửa tùy chọn không hoàn tất bình thường.",
+              "",
+              "## Lý do",
+              "",
+              outlineRevisionWarning,
+            ].join("\n")
+          : [
+              "# 第二版大纲未采用",
+              "",
+              "可用的第一版大纲继续生效；可选修订没有完整结束，系统没有用残缺输出覆盖它。",
+              "",
+              "## 原因",
+              "",
+              outlineRevisionWarning,
+            ].join("\n"));
     }
   }
 
@@ -344,15 +354,25 @@ async function produceShort(
             "",
             revisionWarning,
           ].join("\n")
-        : [
-            "# 第二轮改稿未采用",
-            "",
-            "系统没有用不完整或解析失败的改稿覆盖完整首稿。",
-            "",
-            "## 原因",
-            "",
-            revisionWarning,
-          ].join("\n"));
+        : language === "vi"
+          ? [
+              "# Bản chỉnh sửa thứ hai chưa được áp dụng",
+              "",
+              "Hệ thống không dùng bản chỉnh sửa không hoàn chỉnh hoặc không thể phân tích để ghi đè lên bản nháp đầu tiên hoàn chỉnh.",
+              "",
+              "## Lý do",
+              "",
+              revisionWarning,
+            ].join("\n")
+          : [
+              "# 第二轮改稿未采用",
+              "",
+              "系统没有用不完整或解析失败的改稿覆盖完整首稿。",
+              "",
+              "## 原因",
+              "",
+              revisionWarning,
+            ].join("\n"));
     }
 
     await writeFinalArtifacts(root, baseDir, finalDraft, language);
@@ -593,7 +613,9 @@ async function writePackageArtifacts(
   const finalDir = join(baseDir, "final");
   const headings = language === "en"
     ? { intro: "## Synopsis", sellingPoints: "## Selling Points", coverPrompt: "## Cover Prompt" }
-    : { intro: "## 简介", sellingPoints: "## 卖点", coverPrompt: "## 封面提示词" };
+    : language === "vi"
+      ? { intro: "## Tóm tắt", sellingPoints: "## Điểm nổi bật", coverPrompt: "## Gợi ý bìa" }
+      : { intro: "## 简介", sellingPoints: "## 卖点", coverPrompt: "## 封面提示词" };
   const packageMarkdown = [
     `# ${salesPackage.title}`,
     "",
@@ -1065,6 +1087,30 @@ function buildCoverImagePrompt(
       "Cover direction: a platform short-fiction book cover, not a movie poster. The title lettering is the primary visual — reserve a large two-to-four-line type zone; character in close-up or half-body with a charged expression (cold smirk, shock, breakdown, menace, or payback); props few but large, telegraphing the conflict at a glance.",
       "High-contrast, high-saturation colors that read as a phone-list thumbnail. Avoid realistic corporate photography, landscape video thumbnails, magazine editorial looks, delicate thin lettering, and long runs of text.",
       "If the model's text rendering is unreliable, prioritize a clear title whitespace/type-block/layout zone instead of covering the canvas with garbled lettering.",
+    ].filter(Boolean).join("\n");
+  }
+  if (language === "vi") {
+    const base = [
+      `Tiêu đề: ${salesPackage.title}`,
+      salesPackage.intro ? `Tóm tắt: ${salesPackage.intro}` : "",
+      salesPackage.sellingPoints.length > 0 ? `Điểm nổi bật: ${salesPackage.sellingPoints.join("; ")}` : "",
+      salesPackage.coverPrompt ? `Ghi chú hình ảnh của người dùng: ${salesPackage.coverPrompt}` : "",
+    ].filter(Boolean);
+
+    if (mode === "generic") {
+      return [
+        "Hãy tạo ảnh bìa từ tiêu đề, phần tóm tắt, các điểm nổi bật và ghi chú hình ảnh do người dùng cung cấp.",
+        ...base,
+      ].join("\n");
+    }
+
+    return [
+      "Hãy tạo bìa sách dọc cho truyện ngắn tiếng Việt trên thiết bị di động, tỷ lệ dọc 3:4.",
+      ...base.map((line) => line.replace(/^Tiêu đề: /u, "Tiêu đề chính: ").replace(/^Ghi chú hình ảnh của người dùng: /u, "Ghi chú đóng gói: ")),
+      "",
+      "Định hướng bìa: bìa truyện ngắn trên nền tảng, không phải áp phích phim. Chữ tiêu đề là trọng tâm hình ảnh — chừa vùng chữ lớn hai đến bốn dòng; nhân vật cận cảnh hoặc bán thân với biểu cảm căng thẳng (cười lạnh, sốc, suy sụp, đe dọa hoặc phản công); đạo cụ ít nhưng lớn, thể hiện xung đột chỉ trong một cái nhìn.",
+      "Màu sắc tương phản và bão hòa cao, dễ đọc khi thu nhỏ trên danh sách điện thoại. Tránh ảnh công sở hiện thực, ảnh thu nhỏ video ngang, phong cách tạp chí, chữ mảnh nhẹ và các đoạn văn dài.",
+      "Nếu mô hình dựng chữ không ổn định, hãy ưu tiên khoảng trống/vùng chữ/bố cục rõ ràng cho tiêu đề thay vì phủ đầy ảnh bằng chữ lỗi.",
     ].filter(Boolean).join("\n");
   }
 

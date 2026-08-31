@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AutomationModeSchema } from "./modes.js";
-
+import { WritingLanguageSchema } from "../utils/language.js";
 export const InteractionIntentTypeSchema = z.enum([
   "develop_book",
   "show_book_draft",
@@ -35,7 +35,7 @@ export const InteractionRequestSchema = z.object({
   title: z.string().min(1).optional(),
   genre: z.string().min(1).optional(),
   platform: z.string().min(1).optional(),
-  language: z.enum(["zh", "en"]).optional(),
+  language: WritingLanguageSchema.optional(),
   chapterWordCount: z.number().int().min(1).optional(),
   targetChapters: z.number().int().min(1).optional(),
   blurb: z.string().min(1).optional(),

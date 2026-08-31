@@ -6,12 +6,16 @@ describe("tui local commands", () => {
     expect(classifyLocalTuiCommand("/help")).toBe("help");
     expect(classifyLocalTuiCommand("help")).toBe("help");
     expect(classifyLocalTuiCommand("帮助")).toBe("help");
+    expect(classifyLocalTuiCommand("trợ giúp")).toBe("help");
+    expect(classifyLocalTuiCommand("tro giup")).toBe("help");
   });
 
   it("recognizes status aliases", () => {
     expect(classifyLocalTuiCommand("/status")).toBe("status");
     expect(classifyLocalTuiCommand("status")).toBe("status");
     expect(classifyLocalTuiCommand("状态")).toBe("status");
+    expect(classifyLocalTuiCommand("trạng thái")).toBe("status");
+    expect(classifyLocalTuiCommand("trang thai")).toBe("status");
   });
 
   it("recognizes quit aliases", () => {
@@ -21,6 +25,8 @@ describe("tui local commands", () => {
     expect(classifyLocalTuiCommand("exit")).toBe("quit");
     expect(classifyLocalTuiCommand("bye")).toBe("quit");
     expect(classifyLocalTuiCommand("退出")).toBe("quit");
+    expect(classifyLocalTuiCommand("thoát")).toBe("quit");
+    expect(classifyLocalTuiCommand("thoat")).toBe("quit");
   });
 
   it("recognizes config and clear aliases", () => {
@@ -28,6 +34,10 @@ describe("tui local commands", () => {
     expect(classifyLocalTuiCommand("配置")).toBe("config");
     expect(classifyLocalTuiCommand("/clear")).toBe("clear");
     expect(classifyLocalTuiCommand("清屏")).toBe("clear");
+    expect(classifyLocalTuiCommand("cấu hình")).toBe("config");
+    expect(classifyLocalTuiCommand("cau hinh")).toBe("config");
+    expect(classifyLocalTuiCommand("xóa")).toBe("clear");
+    expect(classifyLocalTuiCommand("xoa")).toBe("clear");
   });
 
   it("returns undefined for normal chat input", () => {
@@ -42,6 +52,9 @@ describe("tui local commands", () => {
     expect(parseDepthCommand("深度 轻量")).toBe("light");
     expect(parseDepthCommand("/深度 标准")).toBe("normal");
     expect(parseDepthCommand("深度 深入")).toBe("deep");
+    expect(parseDepthCommand("độ sâu nhẹ")).toBe("light");
+    expect(parseDepthCommand("/do sau binh thuong")).toBe("normal");
+    expect(parseDepthCommand("độ sâu sâu")).toBe("deep");
     expect(parseDepthCommand("/depth weird")).toBeUndefined();
   });
 

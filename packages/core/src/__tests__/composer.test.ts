@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRequire } from "node:module";
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1083,5 +1083,95 @@ describe("ComposerAgent", () => {
     });
 
     expect(result.contextPackage.selectedContext.map((entry) => entry.source)).toContain("runtime/hook_debt#black-ring");
+  });
+  it("uses Vietnamese composer prompts and hook-debt briefs without changing source ids", async () => {
+    const composer = new ComposerAgent({
+      client: {} as ConstructorParameters<typeof ComposerAgent>[0]["client"],
+      model: "test-model",
+      projectRoot: root,
+      bookId: book.id,
+    });
+    const chat = vi.spyOn(
+      composer as unknown as { chat: (...args: unknown[]) => Promise<unknown> },
+      "chat",
+    ).mockResolvedValue({
+      content: '{"selectedSources":["story/outline/story_frame.md#bi-mat","invalid-source"]}',
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    });
+
+    const outlineSources = await composer.selectOutlineSections({
+      fileName: "outline/story_frame.md",
+      kind: "story-frame",
+      chapterNumber: 8,
+      goal: "Lần theo món nợ của người thầy.",
+      outlineNode: "Bí mật chiếc nhẫn",
+      language: "vi",
+      candidates: [
+        { source: "story/outline/story_frame.md#bi-mat", heading: "Bí mật", excerpt: "Chiếc nhẫn cất giấu một lời hứa." },
+        { source: "story/outline/story_frame.md#ngoai-le", heading: "Ngoại lệ", excerpt: "Không liên quan." },
+      ],
+    });
+
+    expect(outlineSources).toEqual(["story/outline/story_frame.md#bi-mat"]);
+    expect(chat.mock.calls[0]?.[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ content: expect.stringContaining("bộ chọn đoạn đề cương theo ngữ nghĩa") }),
+      expect.objectContaining({ content: expect.stringContaining("Mục tiêu: Lần theo món nợ của người thầy.") }),
+    ]));
+
+    chat.mockResolvedValueOnce({
+      content: '{"selectedSources":["reference/mentor#oath","invented"]}',
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    });
+    const referenceSources = await composer.selectReferenceSections({
+      chapterNumber: 8,
+      goal: "Lần theo món nợ của người thầy.",
+      outlineNode: "Bí mật chiếc nhẫn",
+      mustKeep: ["Không tiết lộ kẻ chủ mưu."],
+      language: "vi",
+      candidates: [
+        { source: "reference/mentor#oath", materialId: "mentor", title: "Hồ sơ người thầy", heading: "Lời thề", uses: ["giọng điệu"] },
+      ],
+    });
+
+    expect(referenceSources).toEqual(["reference/mentor#oath"]);
+    expect(chat.mock.calls[1]?.[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ content: expect.stringContaining("tài liệu tham khảo") }),
+      expect.objectContaining({ content: expect.stringContaining("Không tiết lộ kẻ chủ mưu.") }),
+    ]));
+
+    chat.mockResolvedValueOnce({
+      content: "- runtime/recent: Manh mối chiếc nhẫn vẫn chưa được giải đáp.",
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    });
+    await composer.compileCompressibleContext({
+      chapterNumber: 8,
+      goal: "Lần theo món nợ của người thầy.",
+      language: "vi",
+      maxInputTokens: 600,
+      protectedEntries: [{ source: "story/rules.md", reason: "Quy tắc", excerpt: "Chiếc nhẫn không thể phá hủy." }],
+      compressibleEntries: [{ source: "runtime/recent", reason: "Diễn biến", excerpt: "Linh tìm thấy chiếc nhẫn." }],
+    });
+    expect(chat.mock.calls[2]?.[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ content: expect.stringContaining("trình biên soạn ngữ cảnh theo ngữ nghĩa") }),
+      expect.objectContaining({ content: expect.stringContaining("Ngữ cảnh cần nén") }),
+    ]));
+
+    await Promise.all([
+      writeFile(join(storyDir, "pending_hooks.md"), [
+        "# Pending Hooks", "", "| hook_id | 起始章节 | 类型 | 状态 | 最近推进 | 预期回收 | 回收节奏 | 备注 |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| black-ring | 6 | mystery | open | 7 | Hé lộ nguồn gốc chiếc nhẫn | Trung kỳ | Món nợ của người thầy |", "",
+      ].join("\n"), "utf-8"),
+      writeFile(join(storyDir, "chapter_summaries.md"), [
+        "# Chapter Summaries", "", "| 6 | Chiếc nhẫn đen | Linh | Chiếc nhẫn xuất hiện | Áp lực tăng | black-ring seeded | bất an | mystery |", "",
+      ].join("\n"), "utf-8"),
+    ]);
+    const composed = await composeGovernedChapter({
+      book: { ...book, language: "vi" }, bookDir, chapterNumber: 8,
+      plan: { ...plan, intent: { ...plan.intent, chapter: 8 }, memo: { ...plan.memo, chapter: 8, threadRefs: ["black-ring"] } },
+    });
+    const hookDebt = composed.contextPackage.selectedContext.find((entry) => entry.source === "runtime/hook_debt#black-ring");
+    expect(hookDebt?.reason).toContain("Tóm lược nợ tự sự");
+    expect(hookDebt?.excerpt).toContain("lời hứa với độc giả:");
   });
 });

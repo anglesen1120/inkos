@@ -13,7 +13,7 @@ import {
 } from "./session.js";
 
 type ReviseMode = "local-fix" | "rewrite";
-type RuntimeLanguage = "zh" | "en";
+type RuntimeLanguage = "zh" | "en" | "vi";
 
 export interface InteractionRuntimeTools {
   readonly listBooks: () => Promise<ReadonlyArray<string>>;
@@ -21,7 +21,7 @@ export interface InteractionRuntimeTools {
     readonly title: string;
     readonly genre?: string;
     readonly platform?: string;
-    readonly language?: "zh" | "en";
+    readonly language?: "zh" | "en" | "vi";
     readonly chapterWordCount?: number;
     readonly targetChapters?: number;
     readonly blurb?: string;
@@ -110,11 +110,15 @@ function extractToolMetadata(value: unknown): InteractionToolMetadata {
 }
 
 function resolveRuntimeLanguage(request: InteractionRequest): RuntimeLanguage {
-  return request.language === "en" ? "en" : "zh";
+  if (request.language === "en") return "en";
+  if (request.language === "vi") return "vi";
+  return "zh";
 }
 
-function localize<T>(language: RuntimeLanguage, messages: { zh: T; en: T }): T {
-  return language === "en" ? messages.en : messages.zh;
+function localize<T>(language: RuntimeLanguage, messages: { zh: T; en: T; vi?: T }): T {
+  if (language === "en") return messages.en;
+  if (language === "vi") return messages.vi ?? messages.en;
+  return messages.zh;
 }
 
 function localizeMode(mode: AutomationMode, language: RuntimeLanguage): string {
@@ -146,18 +150,31 @@ function renderCreationDraft(
         draft.blurb ? `- Blurb: ${draft.blurb}` : undefined,
         draft.nextQuestion ? `- Next: ${draft.nextQuestion}` : undefined,
       ]
-    : [
-        "# 当前创作草案",
-        draft.title ? `- 书名：${draft.title}` : undefined,
-        draft.genre ? `- 题材：${draft.genre}` : undefined,
-        draft.platform ? `- 平台：${draft.platform}` : undefined,
-        draft.worldPremise ? `- 世界观：${draft.worldPremise}` : undefined,
-        draft.protagonist ? `- 主角：${draft.protagonist}` : undefined,
-        draft.conflictCore ? `- 核心冲突：${draft.conflictCore}` : undefined,
-        draft.volumeOutline ? `- 卷纲方向：${draft.volumeOutline}` : undefined,
-        draft.blurb ? `- 简介：${draft.blurb}` : undefined,
-        draft.nextQuestion ? `- 下一步：${draft.nextQuestion}` : undefined,
-      ];
+    : language === "vi"
+      ? [
+          "# Bản nháp sáng tác hiện tại",
+          draft.title ? `- Tên sách: ${draft.title}` : undefined,
+          draft.genre ? `- Thể loại: ${draft.genre}` : undefined,
+          draft.platform ? `- Nền tảng: ${draft.platform}` : undefined,
+          draft.worldPremise ? `- Thế giới: ${draft.worldPremise}` : undefined,
+          draft.protagonist ? `- Nhân vật chính: ${draft.protagonist}` : undefined,
+          draft.conflictCore ? `- Xung đột chính: ${draft.conflictCore}` : undefined,
+          draft.volumeOutline ? `- Hướng tập: ${draft.volumeOutline}` : undefined,
+          draft.blurb ? `- Giới thiệu: ${draft.blurb}` : undefined,
+          draft.nextQuestion ? `- Tiếp theo: ${draft.nextQuestion}` : undefined,
+        ]
+      : [
+          "# 当前创作草案",
+          draft.title ? `- 书名：${draft.title}` : undefined,
+          draft.genre ? `- 题材：${draft.genre}` : undefined,
+          draft.platform ? `- 平台：${draft.platform}` : undefined,
+          draft.worldPremise ? `- 世界观：${draft.worldPremise}` : undefined,
+          draft.protagonist ? `- 主角：${draft.protagonist}` : undefined,
+          draft.conflictCore ? `- 核心冲突：${draft.conflictCore}` : undefined,
+          draft.volumeOutline ? `- 卷纲方向：${draft.volumeOutline}` : undefined,
+          draft.blurb ? `- 简介：${draft.blurb}` : undefined,
+          draft.nextQuestion ? `- 下一步：${draft.nextQuestion}` : undefined,
+        ];
   return lines.filter(Boolean).join("\n");
 }
 

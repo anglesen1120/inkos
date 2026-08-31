@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { PipelineRunner, runAgentSession } from "@actalk/inkos-core";
 import { buildPipelineConfig, loadConfig, createClient, findProjectRoot, resolveBookId, resolveContext, log, logError } from "../utils.js";
+import { formatCliError, resolveCliLanguage } from "../localization.js";
 
 export const agentCommand = new Command("agent")
   .description("Natural language agent mode (LLM orchestrates via tool-use)")
@@ -48,7 +49,7 @@ export const agentCommand = new Command("agent")
           sessionKind,
           actionSource,
           requestedIntent,
-          language: config.language ?? "zh",
+          language: resolveCliLanguage(config.language),
           pipeline,
           projectRoot: root,
           model: client._piModel
@@ -68,7 +69,7 @@ export const agentCommand = new Command("agent")
       if (opts.json) {
         log(JSON.stringify({ error: String(e) }));
       } else {
-        logError(`Agent failed: ${e}`);
+        logError(formatCliError(resolveCliLanguage(), `Agent failed: ${e}`));
       }
       process.exit(1);
     }

@@ -165,7 +165,7 @@ function buildTitleCatalog(
 export function buildSpinoffFoundationContext(
   parentCanon: string,
   direction: string | undefined,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): string {
   const dir = direction?.trim();
   if (language === "en") {
@@ -204,13 +204,19 @@ export function buildImportFoundationSource(
         "",
         `The imported book has ${chapters.length} chapters. This package selects complete opening chapters, the ending/continuation point, and complete middle anchors. It also keeps the full title catalog. Unselected chapters will be replayed sequentially after foundation generation to rebuild truth files.`,
       ].join("\n")
-    : [
-        "## 导入基础设定压缩资料包",
-        "",
-        `本次导入共 ${chapters.length} 章。这里选取完整的开篇章节、结尾续写点和中段锚点，并保留完整标题目录；未选章节将在后续顺序回放中逐章分析并沉淀 truth files。`,
-      ].join("\n");
-  const catalogTitle = language === "en" ? "## Complete chapter title catalog" : "## 完整章节标题目录";
-  const anchorsTitle = language === "en" ? "## Complete source chapters selected for architecture" : "## 用于反推基础设定的完整锚点章节";
+    : language === "vi"
+      ? [
+          "## Gói nguồn nền tảng nhập khẩu",
+          "",
+          `Sách nhập vào có ${chapters.length} chương. Gói này chọn các chương mở đầu đầy đủ, điểm kết/thời điểm viết tiếp và các mốc giữa truyện; đồng thời giữ danh mục tiêu đề đầy đủ. Những chương không được chọn sẽ được replay tuần tự sau khi tạo nền tảng để dựng lại truth files.`,
+        ].join("\n")
+      : [
+          "## 导入基础设定压缩资料包",
+          "",
+          `本次导入共 ${chapters.length} 章。这里选取完整的开篇章节、结尾续写点和中段锚点，并保留完整标题目录；未选章节将在后续顺序回放中逐章分析并沉淀 truth files。`,
+        ].join("\n");
+  const catalogTitle = language === "en" ? "## Complete chapter title catalog" : language === "vi" ? "## Danh mục tiêu đề chương đầy đủ" : "## 完整章节标题目录";
+  const anchorsTitle = language === "en" ? "## Complete source chapters selected for architecture" : language === "vi" ? "## Các chương nguồn đầy đủ được chọn để dựng nền tảng" : "## 用于反推基础设定的完整锚点章节";
   const anchorText = anchorIndexes
     .map((index) => {
       const chapter = chapters[index]!;
@@ -471,8 +477,10 @@ export class PipelineRunner {
     this.currentAbortSignal()?.throwIfAborted();
   }
 
-  private localize(language: LengthLanguage, messages: { zh: string; en: string }): string {
-    return language === "en" ? messages.en : messages.zh;
+  private localize(language: LengthLanguage, messages: { zh: string; en: string; vi?: string }): string {
+    if (language === "en") return messages.en;
+    if (language === "vi") return messages.vi ?? messages.en;
+    return messages.zh;
   }
 
   private async resolveBookLanguage(
@@ -500,7 +508,9 @@ export class PipelineRunner {
   }
 
   private languageFromLengthSpec(lengthSpec: Pick<LengthSpec, "countingMode">): LengthLanguage {
-    return lengthSpec.countingMode === "en_words" ? "en" : "zh";
+    if (lengthSpec.countingMode === "en_words") return "en";
+    if (lengthSpec.countingMode === "vi_words") return "vi";
+    return "zh";
   }
 
   private logStage(language: LengthLanguage, message: { zh: string; en: string }): void {
@@ -541,7 +551,7 @@ export class PipelineRunner {
     readonly mode: "original" | "fanfic" | "series";
     readonly sourceCanon?: string;
     readonly styleGuide?: string;
-    readonly language: "zh" | "en";
+    readonly language: "zh" | "en" | "vi";
     readonly stageLanguage: LengthLanguage;
     readonly targetChapters?: number;
     readonly maxRetries?: number;
@@ -628,7 +638,7 @@ export class PipelineRunner {
       }>;
       readonly overallFeedback: string;
     },
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): string {
     const dimensionLines = review.dimensions
       .map((dimension) => (
@@ -768,7 +778,7 @@ export class PipelineRunner {
     this.logStage(stageLanguage, { zh: "生成基础设定", en: "generating foundation" });
     const { profile: gp } = await this.loadGenreProfile(book.genre);
     const reviewer = new FoundationReviewerAgent(this.agentCtxFor("foundation-reviewer", book.id));
-    const resolvedLanguage = (book.language ?? gp.language) === "en" ? "en" as const : "zh" as const;
+    const resolvedLanguage = book.language ?? gp.language;
     const foundation = await this.generateAndReviewFoundation({
       generate: (reviewFeedback) => architect.generateFoundation(
         book,
@@ -2805,7 +2815,7 @@ Base the analysis on the text's actual features, not generalities. Support each 
       readonly rhetoricalFeatures: ReadonlyArray<string>;
       readonly sourceName?: string;
     },
-    options: { readonly language: "zh" | "en"; readonly reason: string },
+    options: { readonly language: "zh" | "en" | "vi"; readonly reason: string },
   ): string {
     if (options.language === "en") {
       return [
@@ -3058,7 +3068,7 @@ ${matrix}`,
               generate: (reviewFeedback) => architect.generateFoundationFromImport(book, foundationSource, undefined, reviewFeedback, { importMode: "series" }),
               reviewer: new FoundationReviewerAgent(this.agentCtxFor("foundation-reviewer", input.bookId)),
               mode: "series",
-              language: resolvedLanguage === "en" ? "en" : "zh",
+              language: resolvedLanguage,
               stageLanguage: resolvedLanguage,
               targetChapters: book.targetChapters,
             })

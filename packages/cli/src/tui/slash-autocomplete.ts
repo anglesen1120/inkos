@@ -1,24 +1,24 @@
 import type { CliLanguage } from "../localization.js";
 
-const SLASH_COMMAND_VARIANTS: ReadonlyArray<{ zh: string; en: string }> = [
-  { zh: "/new 输入你的想法", en: "/new describe your idea" },
-  { zh: "/short 输入短篇方向", en: "/short describe the short" },
-  { zh: "/play [open|guided] 输入互动世界开局", en: "/play [open|guided] describe the opening" },
-  { zh: "/cover 输入封面方向", en: "/cover describe the cover" },
-  { zh: "/write", en: "/write" },
-  { zh: "/confirm", en: "/confirm" },
-  { zh: "/cancel", en: "/cancel" },
-  { zh: "/model <model>", en: "/model <model>" },
-  { zh: "/help", en: "/help" },
-  { zh: "/status", en: "/status" },
-  { zh: "/clear", en: "/clear" },
-  { zh: "/depth <light|normal|deep>", en: "/depth <light|normal|deep>" },
-  { zh: "/quit", en: "/quit" },
-  { zh: "/exit", en: "/exit" },
+const SLASH_COMMAND_VARIANTS: ReadonlyArray<{ zh: string; en: string; vi: string }> = [
+  { zh: "/new 输入你的想法", en: "/new describe your idea", vi: "/new mô tả ý tưởng của bạn" },
+  { zh: "/short 输入短篇方向", en: "/short describe the short", vi: "/short mô tả truyện ngắn" },
+  { zh: "/play [open|guided] 输入互动世界开局", en: "/play [open|guided] describe the opening", vi: "/play [open|guided] mô tả mở đầu thế giới tương tác" },
+  { zh: "/cover 输入封面方向", en: "/cover describe the cover", vi: "/cover mô tả hướng bìa" },
+  { zh: "/write", en: "/write", vi: "/write" },
+  { zh: "/confirm", en: "/confirm", vi: "/confirm" },
+  { zh: "/cancel", en: "/cancel", vi: "/cancel" },
+  { zh: "/model <model>", en: "/model <model>", vi: "/model <model>" },
+  { zh: "/help", en: "/help", vi: "/help" },
+  { zh: "/status", en: "/status", vi: "/status" },
+  { zh: "/clear", en: "/clear", vi: "/clear" },
+  { zh: "/depth <light|normal|deep>", en: "/depth <light|normal|deep>", vi: "/depth <light|normal|deep>" },
+  { zh: "/quit", en: "/quit", vi: "/quit" },
+  { zh: "/exit", en: "/exit", vi: "/exit" },
 ];
 
 export function buildSlashCommands(language: CliLanguage = "zh"): readonly string[] {
-  return SLASH_COMMAND_VARIANTS.map((variant) => (language === "en" ? variant.en : variant.zh));
+  return SLASH_COMMAND_VARIANTS.map((variant) => variant[language]);
 }
 
 export const SLASH_COMMANDS = buildSlashCommands("zh");

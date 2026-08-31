@@ -17,6 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -28,6 +30,17 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      - name: Test Vietnamese localization checker
+        run: pnpm test:vi-localization
+      - name: Check Vietnamese localization since previous release
+        shell: bash
+        run: |
+          previous_tag=""
+          if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            previous_tag="$(git describe --tags --match 'v*' --abbrev=0 HEAD^ 2>/dev/null || true)"
+          fi
+          base_ref="${previous_tag:-$(git hash-object -t tree /dev/null)}"
+          pnpm check:vi-localization --changed-since "$base_ref"
       - run: pnpm build
       - run: pnpm --filter @actalk/inkos-core typecheck
       - run: pnpm --filter @actalk/inkos typecheck
@@ -298,8 +311,6 @@ jobs:
     if: ${{ !contains(github.ref_name, '-') }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Generate release notes
         id: notes

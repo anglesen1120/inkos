@@ -343,6 +343,26 @@ describe("agent deterministic writing tools", () => {
     }
   });
 
+  it("localizes propose_action fallback copy for Vietnamese", async () => {
+    const viResult = await createProposeActionTool("vi").execute("proposal-vi", {
+      action: "create_book",
+      instruction: "Viết một tiểu thuyết trinh thám ở Hà Nội.",
+      createBook: {
+        title: "Hồ sơ phố cổ",
+        language: "vi",
+      },
+    });
+
+    expect(viResult.content[0]?.type).toBe("text");
+    if (viResult.content[0]?.type === "text") {
+      expect(viResult.content[0].text).toContain("Tạo sách dài kỳ");
+      expect(viResult.content[0].text).toContain("Sau khi xác nhận");
+    }
+    expect(viResult.details).toMatchObject({
+      actionPayload: { createBook: { language: "vi" } },
+    });
+  });
+
   it("marks in-surface confirmation proposals when requested", async () => {
     const tool = createProposeActionTool("zh", { sameSession: true });
 
@@ -416,6 +436,38 @@ describe("agent deterministic writing tools", () => {
           targetChapters: 100,
           chapterWordCount: 2600,
           language: "zh",
+        },
+      },
+    });
+  });
+
+  it("carries Vietnamese structured execution payloads in proposed actions", async () => {
+    const tool = createProposeActionTool("vi");
+
+    const result = await tool.execute("proposal-book-vi", {
+      action: "create_book",
+      instruction: "Tạo Hồ sơ phố cổ, 80 chương, mỗi chương 1800 từ.",
+      createBook: {
+        title: "Hồ sơ phố cổ",
+        genre: "mystery",
+        platform: "other",
+        targetChapters: 80,
+        chapterWordCount: 1800,
+        language: "vi",
+      },
+    });
+
+    expect(result.details).toMatchObject({
+      kind: "proposed_action",
+      action: "create_book",
+      actionPayload: {
+        createBook: {
+          title: "Hồ sơ phố cổ",
+          genre: "mystery",
+          platform: "other",
+          targetChapters: 80,
+          chapterWordCount: 1800,
+          language: "vi",
         },
       },
     });

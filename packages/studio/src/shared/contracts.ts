@@ -3,6 +3,8 @@
  * Ported from PR #96 (Te9ui1a) — prevents client/server type drift.
  */
 
+export type StudioLanguage = "zh" | "en" | "vi";
+
 // --- Health ---
 
 export interface HealthStatus {
@@ -42,7 +44,7 @@ export interface BookSummary {
 export interface BookDetail extends BookSummary {
   readonly createdAt: string;
   readonly chapterWordCount: number;
-  readonly language: "zh" | "en" | null;
+  readonly language: StudioLanguage | null;
 }
 
 // --- Chapters ---

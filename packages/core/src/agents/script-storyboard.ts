@@ -16,7 +16,7 @@ export interface ScriptCreationInput {
   readonly requirements?: string;
   readonly episodeCount?: number;
   readonly episodeDuration?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
 }
 
 export interface StoryboardCreationInput {
@@ -28,7 +28,7 @@ export interface StoryboardCreationInput {
   readonly aspectRatio?: string;
   readonly granularity?: string;
   readonly maxShots?: number;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly segment?: {
     readonly label: string;
     readonly index: number;
@@ -47,13 +47,13 @@ export interface InteractiveFilmCreationInput {
   readonly episodeDuration?: string;
   readonly budget?: string;
   readonly referenceMode?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
 }
 
 abstract class LongFormProductionAgent extends BaseAgent {
   protected async recoverProductionMarkdown(
     fragments: string,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
     requiredHeadings: readonly string[],
   ): Promise<string> {
     const response = await this.chat([
@@ -66,20 +66,27 @@ abstract class LongFormProductionAgent extends BaseAgent {
               "Return exactly one complete Markdown deliverable. Preserve the user's requirements and the most developed usable content; remove process notes, scratch analysis, wrappers, duplicate document roots, and repeated sections.",
               "Do not summarize or shorten the actual deliverable.",
             ].join("\n")
-          : [
-              "你负责在模型因输出上限续写后，恢复唯一一份规范生产文档。",
-              "输入片段可能包含思考草稿、重叠后缀和从头重写的完整文档。",
-              "返回且只返回一份完整 Markdown 交付稿。保留用户要求和完成度最高的可用内容；删除流程说明、思考草稿、包装文本、重复文档开头和重复小节。",
-              "不得概括或缩短实际交付内容。",
-            ].join("\n"),
+          : language === "vi"
+            ? [
+                "Bạn khôi phục duy nhất một tài liệu sản xuất chuẩn sau khi mô hình bị giới hạn độ dài đầu ra và phải viết tiếp.",
+                "Các đoạn đầu vào có thể chứa nháp phân tích, phần đuôi trùng lặp và bản viết lại hoàn chỉnh từ đầu.",
+                "Chỉ trả về một tài liệu Markdown hoàn chỉnh duy nhất. Giữ nguyên yêu cầu của người dùng và nội dung hoàn thiện nhất có thể dùng được; bỏ ghi chú quy trình, nháp phân tích, văn bản bao quanh, phần mở đầu lặp lại và các tiểu mục trùng lặp.",
+                "Không tóm tắt hay rút gọn nội dung thực tế được giao.",
+              ].join("\n")
+            : [
+                "你负责在模型因输出上限续写后，恢复唯一一份规范生产文档。",
+                "输入片段可能包含思考草稿、重叠后缀和从头重写的完整文档。",
+                "返回且只返回一份完整 Markdown 交付稿。保留用户要求和完成度最高的可用内容；删除流程说明、思考草稿、包装文本、重复文档开头和重复小节。",
+                "不得概括或缩短实际交付内容。",
+              ].join("\n"),
       },
       {
         role: "user",
         content: [
-          language === "en" ? "## Required Headings" : "## 必需标题",
+          language === "en" ? "## Required Headings" : language === "vi" ? "## Tiêu đề bắt buộc" : "## 必需标题",
           ...requiredHeadings.map((heading) => `- ${heading}`),
           "",
-          language === "en" ? "## Output Fragments" : "## 输出片段",
+          language === "en" ? "## Output Fragments" : language === "vi" ? "## Các đoạn đầu ra" : "## 输出片段",
           fragments,
         ].join("\n"),
       },
@@ -113,7 +120,11 @@ export class ScriptCreationAgent extends LongFormProductionAgent {
       recoverAfterContinuation: (fragments) => this.recoverProductionMarkdown(
         fragments,
         language,
-        language === "en" ? ["## Characters", "## Script"] : ["## 人物", "## 剧本正文"],
+        language === "en"
+          ? ["## Characters", "## Script"]
+          : language === "vi"
+            ? ["## 人物（Nhân vật）", "## 剧本正文（Nội dung kịch bản）"]
+            : ["## 人物", "## 剧本正文"],
       ),
     });
     return extractProductionDocument(response.content, input.title);
@@ -142,7 +153,11 @@ export class StoryboardCreationAgent extends LongFormProductionAgent {
       recoverAfterContinuation: (fragments) => this.recoverProductionMarkdown(
         fragments,
         language,
-        language === "en" ? ["## Storyboard", "## Image Prompts"] : ["## 分镜表", "## 图像提示词"],
+        language === "en"
+          ? ["## Storyboard", "## Image Prompts"]
+          : language === "vi"
+            ? ["## 分镜表（Bảng phân cảnh）", "## 图像提示词（Prompt hình ảnh）"]
+            : ["## 分镜表", "## 图像提示词"],
       ),
     });
     return extractProductionDocument(response.content, input.title);
@@ -173,7 +188,9 @@ export class InteractiveFilmCreationAgent extends LongFormProductionAgent {
         language,
         language === "en"
           ? ["## Story Tree", "## Variables and Flags", "## Ending Paths", "## Interactive Script", "## Storyboard and Image Prompts"]
-          : ["## 剧情树", "## 变量与旗标表", "## 多结局路径", "## 互动剧本", "## 分镜与图像提示词"],
+          : language === "vi"
+            ? ["## 剧情树（Cây cốt truyện）", "## 变量与旗标表（Biến và cờ hiệu）", "## 多结局路径（Các nhánh kết thúc）", "## 互动剧本（Kịch bản tương tác）", "## 分镜与图像提示词（Phân cảnh và prompt hình ảnh）"]
+            : ["## 剧情树", "## 变量与旗标表", "## 多结局路径", "## 互动剧本", "## 分镜与图像提示词"],
       ),
     });
     return extractProductionDocument(response.content, input.title);
@@ -206,6 +223,26 @@ export function renderScriptSpec(input: ScriptCreationInput): string {
       "",
       "## Source Material Summary",
       summarizeSourceForSpec(input.sourceText, "en"),
+    ].join("\n");
+  }
+  if ((input.language ?? "zh") === "vi") {
+    return [
+      `# ${input.title} Đặc tả sáng tác kịch bản`,
+      "",
+      `- Loại hình bàn giao: ${formatScriptTarget(input.targetFormat, "vi")}`,
+      input.episodeCount ? `- Số tập/đoạn: ${input.episodeCount}` : "- Số tập/đoạn: không xác định, căn cứ vào chất liệu và yêu cầu của người dùng",
+      input.episodeDuration ? `- Thời lượng mỗi tập/đoạn: ${input.episodeDuration}` : "- Thời lượng mỗi tập/đoạn: không xác định",
+      input.sourceKind ? `- Chất liệu gốc: ${input.sourceKind}` : "- Chất liệu gốc: đầu vào của người dùng / yêu cầu trong hội thoại",
+      "",
+      "## Yêu cầu của người dùng",
+      input.requirements?.trim() || "Không được nêu riêng; căn cứ vào instruction mà người dùng đã xác nhận.",
+      "",
+      "## Ranh giới chuyển thể",
+      "- Ưu tiên giữ nguyên nhân vật, quan hệ, xung đột, sự kiện mấu chốt và điều cấm kỵ mà người dùng chỉ định rõ.",
+      "- Không tự thay người dùng quyết định mức độ chuyển thể (faithful adaptation / commercial punch-up / low-budget shoot); chỉ thực thi đặc tả mà người dùng đã xác nhận.",
+      "",
+      "## Tóm tắt chất liệu gốc",
+      summarizeSourceForSpec(input.sourceText, "vi"),
     ].join("\n");
   }
   return [
@@ -252,6 +289,28 @@ export function renderStoryboardSpec(input: StoryboardCreationInput): string {
       "",
       "## Source Material Summary",
       summarizeSourceForSpec(input.sourceText, "en"),
+    ].join("\n");
+  }
+  if ((input.language ?? "zh") === "vi") {
+    return [
+      `# ${input.title} Đặc tả sáng tác phân cảnh`,
+      "",
+      "## Mục tiêu",
+      `- Độ chi tiết phân cảnh: ${input.granularity?.trim() || "tách theo cảnh và các cú máy then chốt"}`,
+      `- Tỷ lệ khung hình: ${input.aspectRatio?.trim() || "không xác định; mặc định theo chất liệu và mục tiêu của người dùng"}`,
+      `- Phong cách thị giác: ${input.visualStyle?.trim() || "không xác định; căn cứ vào chất liệu của người dùng và nền tảng mục tiêu"}`,
+      input.maxShots ? `- Giới hạn cú máy: ${input.maxShots}` : "- Giới hạn cú máy: không xác định",
+      input.sourceKind ? `- Chất liệu gốc: ${input.sourceKind}` : "- Chất liệu gốc: đầu vào của người dùng / yêu cầu trong hội thoại",
+      "",
+      "## Yêu cầu của người dùng",
+      input.requirements?.trim() || "Không được nêu riêng; căn cứ vào instruction mà người dùng đã xác nhận.",
+      "",
+      "## Ranh giới phân cảnh",
+      "- Phân cảnh là công cụ sáng tạo, không khóa chết cách quay cuối cùng; kết quả phải dễ tiếp tục trao đổi, mở rộng, cắt bỏ và quay lại.",
+      "- Chỉ tuân theo phong cách, định dạng, bố cục và ràng buộc thị giác mà người dùng đã xác nhận; điều người dùng chưa nói không được viết thành ràng buộc cứng mặc định.",
+      "",
+      "## Tóm tắt chất liệu gốc",
+      summarizeSourceForSpec(input.sourceText, "vi"),
     ].join("\n");
   }
   return [
@@ -310,6 +369,31 @@ export function renderInteractiveFilmSpec(input: InteractiveFilmCreationInput): 
       summarizeSourceForSpec(input.sourceText, "en"),
     ].join("\n");
   }
+  if ((input.language ?? "zh") === "vi") {
+    return [
+      `# ${input.title} Đặc tả sáng tác phim tương tác`,
+      "",
+      "## Mục tiêu",
+      "- Loại hình bàn giao: phim tương tác / game kể chuyện tương tác / kịch bản phim-game",
+      "- Phạm vi bàn giao: cây cốt truyện, biến/cờ hiệu, kịch bản nút chơi được, đa kết thúc, phân cảnh và tài nguyên hình ảnh",
+      input.episodeCount ? `- Đoạn/tập cốt truyện: ${input.episodeCount}` : "- Đoạn/tập cốt truyện: không xác định, căn cứ vào chất liệu và yêu cầu của người dùng",
+      input.episodeDuration ? `- Thời lượng mỗi đoạn/tập: ${input.episodeDuration}` : "- Thời lượng mỗi đoạn/tập: không xác định",
+      input.budget ? `- Ràng buộc ngân sách: ${input.budget}` : "- Ràng buộc ngân sách: không xác định",
+      input.targetAudience ? `- Đối tượng mục tiêu: ${input.targetAudience}` : "- Đối tượng mục tiêu: không xác định",
+      input.referenceMode ? `- Chế độ tham chiếu: ${input.referenceMode}` : "- Chế độ tham chiếu: người dùng chưa chỉ định; không tự áp mẫu game cố định",
+      input.sourceKind ? `- Chất liệu gốc: ${input.sourceKind}` : "- Chất liệu gốc: đầu vào của người dùng / yêu cầu trong hội thoại",
+      "",
+      "## Yêu cầu của người dùng",
+      input.requirements?.trim() || "Không được nêu riêng; căn cứ vào instruction mà người dùng đã xác nhận.",
+      "",
+      "## Ranh giới phim tương tác",
+      "- Không tự thêm chỉ số RPG, công thức chiến đấu, cấp trang bị hoặc hệ thống gameplay nào mà người dùng không yêu cầu.",
+      "- Không tự thay người dùng quyết định đề tài, ngân sách, phong cách hình ảnh hay mức độ gia tăng sức hút thương mại; phần chưa chỉ định ghi là có thể điều chỉnh.",
+      "",
+      "## Tóm tắt chất liệu gốc",
+      summarizeSourceForSpec(input.sourceText, "vi"),
+    ].join("\n");
+  }
   return [
     `# ${input.title} 互动影游创作规格`,
     "",
@@ -339,6 +423,8 @@ export function extractStoryboardImagePrompts(raw: string): string {
   const section = extractMarkdownSection(raw, [
     "图像提示词",
     "分镜图提示词",
+    "Prompt hình ảnh",
+    "Prompt hình cho phân cảnh",
     "Image Prompts",
     "Shot Image Prompts",
   ]);
@@ -427,7 +513,7 @@ export function normalizeScriptEpisodeEndLabels(script: string): string {
   }).join("\n");
 }
 
-function buildScriptCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
+function buildScriptCreationSystemPrompt(language: "zh" | "en" | "vi" = "zh"): string {
   if (language === "en") {
     return [
       "You are a script-creation tool, not a novel-continuation engine.",
@@ -435,6 +521,15 @@ function buildScriptCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
       "Never ask a question, offer options for the user to choose, or defer writing. Resolve unspecified creative details with a coherent working choice; they remain editable later.",
       "The deliverable must include the exact Markdown headings `## Characters` and `## Script`, followed by a complete performable script rather than a proposal or outline.",
       "Output Markdown. No process notes, no model self-narration, no \"Here is\" preamble.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "Bạn là công cụ sáng tác kịch bản, không phải động cơ viết tiếp tiểu thuyết.",
+      "Đây là lời gọi sản xuất phi tương tác sau khi người dùng đã xác nhận. Hãy thực thi đặc tả sáng tác và chất liệu gốc đã được xác nhận ngay bây giờ.",
+      "Không được đặt câu hỏi, đưa ra phương án để người dùng chọn, hay trì hoãn việc viết. Với chi tiết sáng tạo chưa được chỉ định, hãy chọn một phương án làm việc mạch lạc; về sau vẫn có thể chỉnh sửa.",
+      "Bài bàn giao phải có đúng các tiêu đề Markdown `## 人物（Nhân vật）` và `## 剧本正文（Nội dung kịch bản）`, tiếp theo là kịch bản hoàn chỉnh có thể dàn dựng, không phải đề xuất hay dàn ý.",
+      "Xuất Markdown. Không ghi chú quy trình, không tự thuật của mô hình, không mở đầu kiểu \"Đây là\".",
     ].join("\n");
   }
   return [
@@ -446,7 +541,7 @@ function buildScriptCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
   ].join("\n");
 }
 
-function buildScriptCreationUserPrompt(input: ScriptCreationInput, language: "zh" | "en" = "zh"): string {
+function buildScriptCreationUserPrompt(input: ScriptCreationInput, language: "zh" | "en" | "vi" = "zh"): string {
   if (language === "en") {
     return [
       "## Creation Spec",
@@ -464,6 +559,25 @@ function buildScriptCreationUserPrompt(input: ScriptCreationInput, language: "zh
       "## Script",
       "",
       "Follow the target format. Vertical short drama: \"Episode N / scene slug / characters / action / dialogue / end-of-episode hook\". Standard screenplay: \"scene heading / action / character / dialogue\".",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "## Đặc tả sáng tác",
+      renderScriptSpec(input),
+      "",
+      "## Toàn bộ chất liệu gốc",
+      input.sourceText?.trim()
+        || "Người dùng không cung cấp toàn bộ chất liệu gốc; hãy viết bản nháp kịch bản có thể mở rộng tiếp, nghiêm túc theo đặc tả sáng tác và yêu cầu của người dùng.",
+      "",
+      "## Định dạng đầu ra",
+      `# ${input.title}`,
+      "",
+      "## 人物（Nhân vật）",
+      "",
+      "## 剧本正文（Nội dung kịch bản）",
+      "",
+      "Hãy viết toàn bộ văn xuôi, lời thoại, chỉ dẫn sân khấu và lời thoại phụ đề bằng tiếng Việt tự nhiên, đúng dấu câu tiếng Việt, xưng hô phù hợp với quan hệ, tuổi tác, địa vị và bối cảnh của từng nhân vật. Tuân theo định dạng mục tiêu. Phim ngắn dọc: \"tập N / slug cảnh / nhân vật / hành động / lời thoại / hook cuối tập\". Kịch bản chuẩn: \"tiêu đề cảnh / hành động / nhân vật / lời thoại\".",
     ].join("\n");
   }
   return [
@@ -484,11 +598,17 @@ function buildScriptCreationUserPrompt(input: ScriptCreationInput, language: "zh
   ].join("\n");
 }
 
-function buildStoryboardCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
+function buildStoryboardCreationSystemPrompt(language: "zh" | "en" | "vi" = "zh"): string {
   if (language === "en") {
     return [
       "You are a storyboard-creation tool. Execute the confirmed visual spec and source material; unconfirmed choices remain adjustable.",
       "Output Markdown. No model self-narration or process explanation.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "Bạn là công cụ sáng tác phân cảnh. Hãy thực thi đặc tả thị giác và chất liệu gốc đã được xác nhận; các lựa chọn chưa được xác nhận vẫn có thể điều chỉnh.",
+      "Xuất Markdown. Không tự thuật của mô hình hoặc giải thích quy trình.",
     ].join("\n");
   }
   return [
@@ -497,7 +617,7 @@ function buildStoryboardCreationSystemPrompt(language: "zh" | "en" = "zh"): stri
   ].join("\n");
 }
 
-function buildStoryboardCreationUserPrompt(input: StoryboardCreationInput, language: "zh" | "en" = "zh"): string {
+function buildStoryboardCreationUserPrompt(input: StoryboardCreationInput, language: "zh" | "en" | "vi" = "zh"): string {
   const maxShots = input.maxShots ?? 24;
   if (language === "en") {
     return [
@@ -518,11 +638,35 @@ function buildStoryboardCreationUserPrompt(input: StoryboardCreationInput, langu
       "",
       "## Storyboard",
       "",
-      `Output at most ${maxShots} shots. Each shot includes: shot number, visual, characters/objects, action, shot size/camera, dialogue/captions, suggested duration, notes.`,
-      "",
       "## Image Prompts",
       "",
       "Write one generation-ready image prompt per shot. Each prompt MUST be its own `Prompt: ...` line; never merge it into the storyboard body, table headers, or explanations. Include only the visual constraints the user has confirmed.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "## Đặc tả phân cảnh",
+      renderStoryboardSpec(input),
+      "",
+      "## Toàn bộ chất liệu gốc",
+      input.sourceText?.trim()
+        || "Người dùng không cung cấp toàn bộ chất liệu gốc; hãy viết bản nháp phân cảnh có thể mở rộng tiếp, nghiêm túc theo đặc tả phân cảnh và yêu cầu của người dùng.",
+      ...(input.segment ? [
+        "",
+        "## Phân đoạn sản xuất hiện tại",
+        `Trong lần gọi này chỉ viết ${input.segment.label} (${input.segment.index + 1}/${input.segment.count}). Giới hạn cú máy toàn cục KHÔNG phải là số cú máy của lần này. Giữ nguyên toàn bộ yêu cầu toàn cục; khi người dùng đã xác nhận số cú máy của cảnh/đoạn này thì tuân thủ nghiêm ngặt con số đó. Không tóm tắt và không viết bất kỳ phân đoạn nào khác.`,
+      ] : []),
+      "",
+      "## Định dạng đầu ra",
+      `# ${input.title} Phân cảnh`,
+      "",
+      "## 分镜表（Bảng phân cảnh）",
+      "",
+      `Xuất tối đa ${maxShots} cú máy. Mỗi cú máy gồm: số hiệu cú máy, hình ảnh, nhân vật/đồ vật, hành động, cỡ cảnh/góc máy, lời thoại/phụ đề, thời lượng đề xuất, ghi chú.`,
+      "",
+      "## 图像提示词（Prompt hình ảnh）",
+      "",
+      "Viết một prompt hình ảnh sẵn sàng sinh ảnh cho từng cú máy. Mỗi prompt PHẢI nằm trên dòng `Prompt: ...` riêng biệt của nó; không nhập chung vào phần thân phân cảnh, hàng tiêu đề bảng hay lời giải thích. Chỉ đưa vào những ràng buộc thị giác mà người dùng đã xác nhận.",
     ].join("\n");
   }
   return [
@@ -550,12 +694,19 @@ function buildStoryboardCreationUserPrompt(input: StoryboardCreationInput, langu
   ].join("\n");
 }
 
-function buildInteractiveFilmCreationSystemPrompt(language: "zh" | "en" = "zh"): string {
+function buildInteractiveFilmCreationSystemPrompt(language: "zh" | "en" | "vi" = "zh"): string {
   if (language === "en") {
     return [
       "You are an interactive-film creation tool. Execute the confirmed spec and source material; unconfirmed choices remain adjustable.",
       "Output must be Markdown with the specified sections. No model self-narration, process notes, or \"Here is\" preamble.",
       "Every storyboard image prompt must be its own standalone `Prompt: ...` line so downstream asset management can pick it up; include only the visual constraints the user has confirmed.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "Bạn là công cụ sáng tác phim tương tác. Hãy thực thi đặc tả và chất liệu gốc đã được xác nhận; các lựa chọn chưa được xác nhận vẫn có thể điều chỉnh.",
+      "Đầu ra phải là Markdown với đúng các tiểu mục đã chỉ định. Không tự thuật của mô hình, ghi chú quy trình hoặc mở đầu kiểu \"Đây là\".",
+      "Mỗi prompt hình ảnh phân cảnh phải nằm trên dòng `Prompt: ...` riêng biệt để khâu quản lý tài nguyên phía sau có thể thu thập; chỉ đưa vào những ràng buộc thị giác mà người dùng đã xác nhận.",
     ].join("\n");
   }
   return [
@@ -565,7 +716,7 @@ function buildInteractiveFilmCreationSystemPrompt(language: "zh" | "en" = "zh"):
   ].join("\n");
 }
 
-function buildInteractiveFilmCreationUserPrompt(input: InteractiveFilmCreationInput, language: "zh" | "en" = "zh"): string {
+function buildInteractiveFilmCreationUserPrompt(input: InteractiveFilmCreationInput, language: "zh" | "en" | "vi" = "zh"): string {
   if (language === "en") {
     return [
       "## Interactive Film Spec",
@@ -592,6 +743,34 @@ function buildInteractiveFilmCreationUserPrompt(input: InteractiveFilmCreationIn
       "",
       "## Storyboard and Image Prompts",
       "List the key shots. Each shot includes visual, characters/objects, action, shot size, and suggested duration. After each shot, add exactly one standalone `Prompt: ...` line.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "## Đặc tả phim tương tác",
+      renderInteractiveFilmSpec(input),
+      "",
+      "## Toàn bộ chất liệu gốc",
+      input.sourceText?.trim()
+        || "Người dùng không cung cấp toàn bộ chất liệu gốc; hãy viết bản bàn giao phim tương tác có thể mở rộng tiếp, nghiêm túc theo đặc tả sáng tác và yêu cầu của người dùng.",
+      "",
+      "## Định dạng đầu ra",
+      `# ${input.title} Gói phim tương tác`,
+      "",
+      "## 剧情树（Cây cốt truyện）",
+      "Trình bày các nút tuyến chính, nút nhánh, lựa chọn mấu chốt và quan hệ hội tụ/không quay lại dưới dạng Markdown. Cấu trúc đa kết thúc phải nhìn thấy được ngay từ cái nhìn đầu tiên.",
+      "",
+      "## 变量与旗标表（Biến và cờ hiệu）",
+      "Liệt kê từng biến/cờ hiệu: tên, ý nghĩa, cách kích hoạt, phạm vi ảnh hưởng và các nút liên quan. Biến có thể là quan hệ, trạng thái, bằng chứng, vật phẩm, danh tính, trạng thái công khai/che giấu, điều kiện mở kết thúc...",
+      "",
+      "## 多结局路径（Các nhánh kết thúc）",
+      "Với mỗi kết thúc: điều kiện mở khóa, chuỗi lựa chọn mấu chốt, biến/cờ hiệu bắt buộc, cùng các điều kiện kết thúc thất bại hoặc kết thúc ẩn.",
+      "",
+      "## 互动剧本（Kịch bản tương tác）",
+      "Viết kịch bản chơi được cho từng nút: cảnh, nhân vật, hành động, lời thoại, lựa chọn của người chơi, thay đổi biến và đích đến của nhánh. Không chỉ viết tóm tắt.",
+      "",
+      "## 分镜与图像提示词（Phân cảnh và prompt hình ảnh）",
+      "Liệt kê các cú máy mấu chốt. Mỗi cú máy gồm hình ảnh, nhân vật/đồ vật, hành động, cỡ cảnh và thời lượng đề xuất. Sau mỗi cú máy, thêm đúng một dòng `Prompt: ...` riêng biệt.",
     ].join("\n");
   }
   return [
@@ -621,7 +800,7 @@ function buildInteractiveFilmCreationUserPrompt(input: InteractiveFilmCreationIn
   ].join("\n");
 }
 
-function formatScriptTarget(value: ScriptTargetFormat | undefined, language: "zh" | "en" = "zh"): string {
+function formatScriptTarget(value: ScriptTargetFormat | undefined, language: "zh" | "en" | "vi" = "zh"): string {
   if (language === "en") {
     switch (value) {
       case "vertical_short_drama":
@@ -635,6 +814,21 @@ function formatScriptTarget(value: ScriptTargetFormat | undefined, language: "zh
       case "general_script":
       default:
         return "general script";
+    }
+  }
+  if (language === "vi") {
+    switch (value) {
+      case "vertical_short_drama":
+        return "phim ngắn dọc";
+      case "screenplay":
+        return "kịch bản chuẩn";
+      case "audio_drama":
+        return "kịch radio/phim có tiếng";
+      case "interactive_script":
+        return "kịch bản tương tác";
+      case "general_script":
+      default:
+        return "kịch bản tổng hợp";
     }
   }
   switch (value) {
@@ -652,7 +846,7 @@ function formatScriptTarget(value: ScriptTargetFormat | undefined, language: "zh
   }
 }
 
-function summarizeSourceForSpec(sourceText: string | undefined, language: "zh" | "en" = "zh"): string {
+function summarizeSourceForSpec(sourceText: string | undefined, language: "zh" | "en" | "vi" = "zh"): string {
   const text = sourceText?.replace(/\s+/g, " ").trim();
   if (language === "en") {
     if (!text) return "No full source material provided.";

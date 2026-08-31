@@ -16,3 +16,7 @@ Use this skill when the user wants a complete standalone commercial short story,
 - Respond in the user's language.
 
 Load `references/production-checklist.md` before a full production run or whole-story revision.
+
+## Hướng dẫn đầu ra tiếng Việt
+
+Khi ngôn ngữ đầu ra hoặc ngôn ngữ đích là `vi` hay `vi-VN`, viết văn xuôi và lời thoại tiếng Việt tự nhiên, dùng dấu câu và dấu thanh đầy đủ. Giữ tên riêng ổn định; điều chỉnh danh xưng, cách xưng hô và đại từ theo ngữ cảnh, đồng thời bảo đảm bản thảo và nội dung giới thiệu thống nhất về tên, giọng điệu, sự kiện và lời hứa thương mại. Không dịch operation, tool, schema, parser, provider, segment hoặc các định danh máy.

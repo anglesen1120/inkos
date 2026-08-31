@@ -16,6 +16,7 @@ describe("project interaction control", () => {
     projectRoot = await mkdtemp(join(tmpdir(), "inkos-project-control-"));
     await mkdir(join(projectRoot, "books", "harbor"), { recursive: true });
     await writeFile(join(projectRoot, "books", "harbor", "book.json"), "{}", "utf-8");
+    await writeFile(join(projectRoot, "inkos.json"), JSON.stringify({ language: "vi" }), "utf-8");
   });
 
   afterAll(async () => {
@@ -64,6 +65,7 @@ describe("project interaction control", () => {
       platform: "tomato",
       chapterWordCount: 2800,
       targetChapters: 120,
+      language: "vi",
     });
     expect(result.session.activeBookId).toBe("night-harbor");
 

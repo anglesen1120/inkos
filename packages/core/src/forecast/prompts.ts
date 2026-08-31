@@ -1,7 +1,7 @@
 // Bilingual prompt builders for the narrative forecast agent, organized the
 // same way as prompts/short-fiction.ts: each builder switches on language.
 
-export type ForecastLanguage = "zh" | "en";
+export type ForecastLanguage = "zh" | "en" | "vi";
 
 export interface ForecastPromptInput {
   readonly contextMarkdown: string;
@@ -21,6 +21,17 @@ export function buildForecastSystemPrompt(language: ForecastLanguage): string {
       "- Branches are planning material, not prose: beats describe what happens, not scene-level detail.",
       "- Respect canon: every projection must stay consistent with established facts, character locks, and world rules; any necessary conflict must be listed under risks.",
       "- Output exactly one JSON object. No explanations, no markdown headings, no code fences.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "Bạn là trợ lý suy diễn cốt truyện cho tiểu thuyết dài kỳ.",
+      "Nhiệm vụ: xuất phát từ ngữ cảnh chính sử và điểm phân kỳ do tác giả đưa ra, suy diễn nhiều nhánh tương lai ứng viên độc lập, không thuộc chính sử, để tác giả so sánh song song.",
+      "Quy tắc:",
+      "- Các nhánh loại trừ lẫn nhau: mỗi nhánh giả định một hướng giải quyết khác nhau cho điểm phân kỳ và không được tham chiếu hay phụ thuộc vào nhánh khác.",
+      "- Nhánh là tư liệu lập kế hoạch, không phải văn xuôi: nhịp (beat) chỉ ghi \"chuyện gì xảy ra\", không viết chi tiết cấp cảnh.",
+      "- Tôn trọng chính sử: mọi suy diễn phải nhất quán với sự kiện đã thiết lập, khóa tính cách nhân vật và quy tắc thế giới; xung đột thực sự cần thiết phải được ghi vào risks.",
+      "- Chỉ xuất ra một đối tượng JSON duy nhất, không kèm giải thích, tiêu đề markdown hay khối code.",
     ].join("\n");
   }
   return [
@@ -51,6 +62,21 @@ export function buildForecastUserPrompt(input: ForecastPromptInput, language: Fo
       forecastJsonShape(firstChapter, "en"),
     ].join("\n");
   }
+  if (language === "vi") {
+    return [
+      input.contextMarkdown,
+      "",
+      "## Điểm phân kỳ",
+      "",
+      input.divergence,
+      "",
+      "## Yêu cầu đầu ra",
+      "",
+      `Tạo đúng ${input.branchCount} nhánh ứng viên. Mỗi nhánh bao phủ khoảng ${input.horizon} chương tương lai bắt đầu từ chương ${firstChapter}.`,
+      "Trả về JSON đúng cấu trúc sau (tên trường phải khớp chính xác):",
+      forecastJsonShape(firstChapter, "vi"),
+    ].join("\n");
+  }
   return [
     input.contextMarkdown,
     "",
@@ -71,6 +97,12 @@ export function buildForecastRepairPrompt(validationError: string, language: For
     return [
       `Your previous output failed validation: ${validationError}`,
       "Re-output the complete JSON object only, fixing the problem above. No explanations, no code fences.",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      `Đầu ra trước đó của bạn chưa vượt qua kiểm tra: ${validationError}`,
+      "Hãy sửa lỗi nêu trên rồi xuất lại toàn bộ đối tượng JSON; chỉ xuất JSON, không kèm giải thích hay khối code.",
     ].join("\n");
   }
   return [
@@ -98,6 +130,29 @@ function forecastJsonShape(firstChapter: number, language: ForecastLanguage): st
       '      "risks": [{ "kind": "continuity|causality|character", "description": "consistency risk" }],',
       '      "uncertainties": ["open uncertainties"],',
       '      "intentAlignment": { "score": integer 0-100, "rationale": "how well this matches the author intent and current focus" }',
+      "    }",
+      "  ]",
+      "}",
+    ].join("\n");
+  }
+  if (language === "vi") {
+    return [
+      "{",
+      '  "branches": [',
+      "    {",
+      '      "title": "tiêu đề ngắn của nhánh",',
+      '      "premise": "giả định nhánh này đưa ra về điểm phân kỳ",',
+      `      "beats": [{ "chapter": số chương nguyên bắt đầu từ ${firstChapter}, "summary": "chuyện gì xảy ra ở chương đó" }],`,
+      '      "characterDecisions": [{ "character": "tên nhân vật", "decision": "quyết định then chốt nhân vật này đưa ra" }],',
+      '      "projectedChanges": {',
+      '        "characters": ["thay đổi trạng thái nhân vật dự kiến"],',
+      '        "relationships": ["thay đổi quan hệ dự kiến"],',
+      '        "world": ["thay đổi thế giới/thế lực dự kiến"],',
+      '        "hooks": ["những câu móc nào được đẩy tới, kích nổ hoặc phá vỡ"]',
+      "      },",
+      '      "risks": [{ "kind": "continuity|causality|character", "description": "rủi ro nhất quán" }],',
+      '      "uncertainties": ["yếu tố bất định còn mở"],',
+      '      "intentAlignment": { "score": số nguyên 0-100, "rationale": "mức độ khớp với ý định tác giả và trọng tâm hiện tại" }',
       "    }",
       "  ]",
       "}",

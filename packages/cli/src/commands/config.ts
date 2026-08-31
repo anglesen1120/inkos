@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { findProjectRoot, log, logError, GLOBAL_CONFIG_DIR, GLOBAL_ENV_PATH } from "../utils.js";
 import { listModelsForService } from "@actalk/inkos-core";
-import { formatListModelsEmpty, formatListModelsHeader, resolveCliLanguage } from "../localization.js";
+import { formatCliConfigSaved, formatCliConfigSet, formatCliError, formatCliKnownConfigKeys, formatCliUnknownAgent, formatCliUnknownConfigKey, resolveCliLanguage, formatListModelsEmpty, formatListModelsHeader, formatCliApiKeyEnvError, formatCliModelOverride, formatCliDefaultModel } from "../localization.js";
 
 export const configCommand = new Command("config")
   .description("Manage project configuration");
@@ -55,8 +55,9 @@ configCommand
           .map(k => ({ k, d: editDist(k.split(".").pop()!, inputLast) }))
           .sort((a, b) => a.d - b.d)
           .find(x => x.d <= 3)?.k;
-        logError(`Unknown config key "${key}".${suggestion ? ` Did you mean "${suggestion}"?` : ""}`);
-        log(`Known keys: ${candidates.join(", ")}`);
+        const language = resolveCliLanguage();
+        logError(formatCliError(language, formatCliUnknownConfigKey(language, key, suggestion)));
+        log(formatCliKnownConfigKeys(language, candidates));
         process.exit(1);
       }
 
@@ -81,9 +82,9 @@ configCommand
       }
 
       await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
-      log(`Set ${key} = ${value}`);
+      log(formatCliConfigSet(resolveCliLanguage(), key, value));
     } catch (e) {
-      logError(`Failed to update config: ${e}`);
+      logError(formatCliError(resolveCliLanguage(), `Failed to update config: ${e}`));
       process.exit(1);
     }
   });
@@ -99,7 +100,7 @@ configCommand
   .option("--max-tokens <n>", "Max output tokens")
   .option("--thinking-budget <n>", "Anthropic thinking budget")
   .option("--api-format <format>", "API format (chat / responses)")
-  .option("--lang <language>", "Default writing language: zh (Chinese) or en (English)")
+  .option("--lang <language>", "Default writing language: zh (Chinese), en (English), or vi (Vietnamese)")
   .action(async (opts) => {
     try {
       await mkdir(GLOBAL_CONFIG_DIR, { recursive: true });
@@ -117,10 +118,10 @@ configCommand
       if (opts.lang) lines.push(`INKOS_DEFAULT_LANGUAGE=${opts.lang}`);
 
       await writeFile(GLOBAL_ENV_PATH, lines.join("\n") + "\n", "utf-8");
-      log(`Global config saved to ${GLOBAL_ENV_PATH}`);
-      log("All projects will use this config unless overridden by project .env");
+      const language = resolveCliLanguage(opts.lang);
+      log(formatCliConfigSaved(language, GLOBAL_ENV_PATH));
     } catch (e) {
-      logError(`Failed to set global config: ${e}`);
+      logError(formatCliError(resolveCliLanguage(opts.lang), `Failed to set global config: ${e}`));
       process.exit(1);
     }
   });
@@ -158,7 +159,7 @@ configCommand
       }
       log(JSON.stringify(config, null, 2));
     } catch (e) {
-      logError(`Failed to read config: ${e}`);
+      logError(formatCliError(resolveCliLanguage(), `Failed to read config: ${e}`));
       process.exit(1);
     }
   });
@@ -168,10 +169,11 @@ const ENV_VAR_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function validateApiKeyEnvName(value: string): string | undefined {
   if (ENV_VAR_NAME_PATTERN.test(value)) return undefined;
-  if (/^(sk-|sess-|rk-|pk-)/i.test(value) || value.includes("://")) {
-    return "--api-key-env expects an environment variable name like PACKY_API_KEY, not a raw API key or URL.";
-  }
-  return `--api-key-env expects an environment variable name like PACKY_API_KEY. "${value}" is not a valid env var name.`;
+  return localizedApiKeyEnvError(value);
+}
+function localizedApiKeyEnvError(value: string): string {
+  const language = resolveCliLanguage();
+  return formatCliApiKeyEnvError(language, value, /^(sk-|sess-|rk-|pk-)/i.test(value) || value.includes("://"));
 }
 
 configCommand
@@ -186,14 +188,14 @@ configCommand
   .option("--no-stream", "Disable streaming")
   .action(async (agent: string, model: string, opts: { baseUrl?: string; provider?: string; apiKeyEnv?: string; stream?: boolean }) => {
     if (!KNOWN_AGENTS.includes(agent as typeof KNOWN_AGENTS[number])) {
-      logError(`Unknown agent "${agent}". Valid agents: ${KNOWN_AGENTS.join(", ")}`);
+      logError(formatCliError(resolveCliLanguage(), formatCliUnknownAgent(resolveCliLanguage(), agent, KNOWN_AGENTS)));
       process.exit(1);
     }
 
     if (opts.apiKeyEnv) {
       const validationError = validateApiKeyEnvName(opts.apiKeyEnv);
       if (validationError) {
-        logError(validationError);
+        logError(localizedApiKeyEnvError(opts.apiKeyEnv));
         process.exit(1);
       }
     }
@@ -219,9 +221,9 @@ configCommand
       }
 
       await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
-      log(`Model override: ${agent} → ${model}${opts.baseUrl ? ` (${opts.baseUrl})` : ""}`);
+      log(formatCliModelOverride(resolveCliLanguage(), agent, model, opts.baseUrl));
     } catch (e) {
-      logError(`Failed to update config: ${e}`);
+      logError(formatCliError(resolveCliLanguage(), `Failed to update config: ${e}`));
       process.exit(1);
     }
   });
@@ -239,15 +241,15 @@ configCommand
       const config = JSON.parse(raw);
       const overrides = config.modelOverrides;
       if (!overrides || !(agent in overrides)) {
-        log(`No model override for "${agent}".`);
+        log(resolveCliLanguage() === "vi" ? `Không có ghi đè model cho "${agent}".` : `No model override for "${agent}".`);
         return;
       }
       const { [agent]: _, ...rest } = overrides;
       config.modelOverrides = Object.keys(rest).length > 0 ? rest : undefined;
       await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
-      log(`Removed model override for ${agent}. Will use default model.`);
+      log(resolveCliLanguage() === "vi" ? `Đã xóa ghi đè model cho ${agent}. Sẽ dùng model mặc định.` : `Removed model override for ${agent}. Will use default model.`);
     } catch (e) {
-      logError(`Failed to update config: ${e}`);
+      logError(formatCliError(resolveCliLanguage(), `Failed to update config: ${e}`));
       process.exit(1);
     }
   });
@@ -271,12 +273,12 @@ configCommand
         return;
       }
 
-      log(`Default model: ${defaultModel}\n`);
+      log(formatCliDefaultModel(resolveCliLanguage(), defaultModel));
       if (Object.keys(overrides).length === 0) {
-        log("No agent-specific overrides. All agents use the default model.");
+        log(resolveCliLanguage() === "vi" ? "Không có ghi đè riêng cho agent. Tất cả agent dùng model mặc định." : "No agent-specific overrides. All agents use the default model.");
         return;
       }
-      log("Agent overrides:");
+      log(resolveCliLanguage() === "vi" ? "Ghi đè theo agent:" : "Agent overrides:");
       for (const [agent, value] of Object.entries(overrides)) {
         if (typeof value === "string") {
           log(`  ${agent} → ${value}`);
@@ -291,10 +293,10 @@ configCommand
       log("");
       const usingDefault = KNOWN_AGENTS.filter((a) => !(a in overrides));
       if (usingDefault.length > 0) {
-        log(`Using default: ${usingDefault.join(", ")}`);
+        log(resolveCliLanguage() === "vi" ? `Dùng mặc định: ${usingDefault.join(", ")}` : `Using default: ${usingDefault.join(", ")}`);
       }
     } catch (e) {
-      logError(`Failed to read config: ${e}`);
+      logError(formatCliError(resolveCliLanguage(), `Failed to read config: ${e}`));
       process.exit(1);
     }
   });

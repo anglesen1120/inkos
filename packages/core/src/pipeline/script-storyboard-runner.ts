@@ -38,7 +38,7 @@ export interface ScriptCreationRunOptions {
   readonly requirements?: string;
   readonly episodeCount?: number;
   readonly episodeDuration?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly projectId?: string;
   readonly outDir?: string;
   readonly onProgress?: (message: string) => void;
@@ -57,7 +57,7 @@ export interface StoryboardCreationRunOptions {
   readonly aspectRatio?: string;
   readonly granularity?: string;
   readonly maxShots?: number;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly projectId?: string;
   readonly outDir?: string;
   readonly onProgress?: (message: string) => void;
@@ -77,7 +77,7 @@ export interface InteractiveFilmCreationRunOptions {
   readonly episodeDuration?: string;
   readonly budget?: string;
   readonly referenceMode?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly projectId?: string;
   readonly outDir?: string;
   readonly onProgress?: (message: string) => void;
@@ -200,7 +200,7 @@ export async function runScriptCreation(
   };
 }
 
-function assertScriptDeliverable(script: string, language: "zh" | "en"): void {
+function assertScriptDeliverable(script: string, language: "zh" | "en" | "vi"): void {
   const characterHeadings = language === "en" ? ["Characters"] : ["人物", "Characters"];
   const scriptHeadings = language === "en" ? ["Script"] : ["剧本正文", "Script"];
   const body = extractMarkdownSection(
@@ -511,7 +511,9 @@ async function createInteractiveFilmStoryGraph(
 ): Promise<StoryGraph> {
   args.onProgress?.(args.input.language === "en"
     ? "Building the playable story graph through the structured authoring harness..."
-    : "正在通过结构化创作内核生成可玩故事图谱……");
+    : args.input.language === "vi"
+      ? "Đang tạo đồ thị cốt truyện có thể chơi qua bộ điều phối sáng tác có cấu trúc..."
+      : "正在通过结构化创作内核生成可玩故事图谱……");
   return generateStoryGraph(runtime.client, runtime.model, {
     projectId: args.projectId,
     title: args.title,
@@ -542,6 +544,20 @@ function buildInteractiveFilmGraphPremise(
       `Variables and flags:\n${flags}`,
       `Interactive script:\n${script}`,
       `Image prompts:\n${imagePrompts}`,
+    ].filter(Boolean).join("\n\n");
+  }
+  if ((input.language ?? "zh") === "vi") {
+    return [
+      `Yêu cầu sáng tác: ${input.requirements}`,
+      input.targetAudience ? `Đối tượng mục tiêu: ${input.targetAudience}` : "",
+      input.episodeCount ? `Phân đoạn/tập: ${input.episodeCount}` : "",
+      input.episodeDuration ? `Thời lượng mỗi phân đoạn: ${input.episodeDuration}` : "",
+      input.budget ? `Ngân sách: ${input.budget}` : "",
+      input.referenceMode ? `Chế độ tham chiếu: ${input.referenceMode}` : "",
+      `Cây cốt truyện:\n${storyTree}`,
+      `Biến và cờ hiệu:\n${flags}`,
+      `Kịch bản tương tác:\n${script}`,
+      `Prompt hình ảnh:\n${imagePrompts}`,
     ].filter(Boolean).join("\n\n");
   }
   return [
@@ -638,9 +654,13 @@ async function ensureProjectDir(projectRoot: string, relativePath: string): Prom
 function mergeRequirements(
   instruction: string,
   requirements: string | undefined,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
-  const extraLabel = language === "en" ? "Additional requirements:" : "补充要求：";
+  const extraLabel = language === "en"
+    ? "Additional requirements:"
+    : language === "vi"
+      ? "Yêu cầu bổ sung:"
+      : "补充要求：";
   return [
     instruction.trim(),
     requirements?.trim() ? `\n${extraLabel}\n${requirements.trim()}` : "",

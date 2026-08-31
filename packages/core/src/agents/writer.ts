@@ -128,15 +128,15 @@ export class WriterAgent extends BaseAgent {
     return "writer";
   }
 
-  private localize(language: "zh" | "en", messages: { zh: string; en: string }): string {
-    return language === "en" ? messages.en : messages.zh;
+  private localize(language: "zh" | "en" | "vi", messages: { zh: string; en: string; vi: string }): string {
+    return language === "en" ? messages.en : language === "vi" ? messages.vi : messages.zh;
   }
 
-  private logInfo(language: "zh" | "en", messages: { zh: string; en: string }): void {
+  private logInfo(language: "zh" | "en" | "vi", messages: { zh: string; en: string; vi: string }): void {
     this.ctx.logger?.info(this.localize(language, messages));
   }
 
-  private logWarn(language: "zh" | "en", messages: { zh: string; en: string }): void {
+  private logWarn(language: "zh" | "en" | "vi", messages: { zh: string; en: string; vi: string }): void {
     this.ctx.logger?.warn(this.localize(language, messages));
   }
 
@@ -227,6 +227,7 @@ export class WriterAgent extends BaseAgent {
     this.logInfo(resolvedLanguage, {
       zh: `阶段 1：创作正文（第${chapterNumber}章）`,
       en: `Phase 1: creative writing for chapter ${chapterNumber}`,
+      vi: `Giai đoạn 1: viết nội dung chương ${chapterNumber}`,
     });
 
     const creativeResponse = await this.chat(
@@ -251,6 +252,7 @@ export class WriterAgent extends BaseAgent {
     this.logInfo(resolvedLanguage, {
       zh: `阶段 2：状态结算（第${chapterNumber}章，${creative.wordCount}字）`,
       en: `Phase 2: state settlement for chapter ${chapterNumber} (${creative.wordCount} words)`,
+      vi: `Giai đoạn 2: chốt trạng thái chương ${chapterNumber} (${creative.wordCount} từ)`,
     });
     const filteredHooksForSettlement = buildGovernedHookWorkingSet({
       hooksMarkdown: hooks,
@@ -332,6 +334,7 @@ export class WriterAgent extends BaseAgent {
       this.logWarn(resolvedLanguage, {
         zh: `后写校验：第${chapterNumber}章 ${postWriteErrors.length} 个错误，${postWriteWarnings.length} 个警告`,
         en: `Post-write: ${postWriteErrors.length} errors, ${postWriteWarnings.length} warnings in chapter ${chapterNumber}`,
+        vi: `Kiểm tra sau khi viết: chương ${chapterNumber} có ${postWriteErrors.length} lỗi, ${postWriteWarnings.length} cảnh báo`,
       });
       for (const v of ruleViolations) {
         this.ctx.logger?.warn(`[${v.severity}] ${v.rule}: ${v.description}`);
@@ -341,6 +344,7 @@ export class WriterAgent extends BaseAgent {
       this.logWarn(resolvedLanguage, {
         zh: `AI 味检查：第${chapterNumber}章发现 ${aiTellIssues.length} 个问题`,
         en: `AI-tell check: ${aiTellIssues.length} issues in chapter ${chapterNumber}`,
+        vi: `Kiểm tra dấu hiệu AI: chương ${chapterNumber} có ${aiTellIssues.length} vấn đề`,
       });
       for (const issue of aiTellIssues) {
         this.ctx.logger?.warn(`[${issue.severity}] ${issue.category}: ${issue.description}`);
@@ -350,6 +354,7 @@ export class WriterAgent extends BaseAgent {
       this.logWarn(resolvedLanguage, {
         zh: `伏笔健康：第${chapterNumber}章发现 ${hookHealthIssues.length} 条警告`,
         en: `Hook health: ${hookHealthIssues.length} warning(s) in chapter ${chapterNumber}`,
+        vi: `Sức khỏe nút thắt: chương ${chapterNumber} có ${hookHealthIssues.length} cảnh báo`,
       });
       for (const issue of hookHealthIssues) {
         this.ctx.logger?.warn(`[${issue.severity}] ${issue.category}: ${issue.description}`);
@@ -469,7 +474,7 @@ export class WriterAgent extends BaseAgent {
       content: input.content,
       wordCount: countChapterLength(
         input.content,
-        resolvedLanguage === "en" ? "en_words" : "zh_chars",
+        resolvedLanguage === "en" ? "en_words" : resolvedLanguage === "vi" ? "vi_words" : "zh_chars",
       ),
       preWriteCheck: "",
       postSettlement: settlement.postSettlement,
@@ -526,10 +531,10 @@ export class WriterAgent extends BaseAgent {
     const resolvedLang = params.book.language ?? params.genreProfile.language;
     const observerSystem = buildObserverSystemPrompt(params.book, params.genreProfile, resolvedLang);
     const observerUser = buildObserverUserPrompt(params.chapterNumber, params.title, params.content, resolvedLang);
-
     this.logInfo(resolvedLang, {
       zh: `阶段 2a：提取第${params.chapterNumber}章事实`,
       en: `Phase 2a: observing facts for chapter ${params.chapterNumber}`,
+      vi: `Giai đoạn 2a: thu thập sự kiện chương ${params.chapterNumber}`,
     });
     const observerResponse = await this.chat(
       [
@@ -544,6 +549,7 @@ export class WriterAgent extends BaseAgent {
     this.logInfo(resolvedLang, {
       zh: "阶段 2b：把观察结果回写到真相文件",
       en: "Phase 2b: reflecting observations into truth files",
+      vi: "Giai đoạn 2b: ghi nhận quan sát vào các tệp dữ liệu gốc",
     });
     const settlerSystem = buildSettlerSystemPrompt(
       params.book, params.genreProfile, params.bookRules, resolvedLang,
@@ -629,7 +635,7 @@ export class WriterAgent extends BaseAgent {
     bookDir: string,
     output: WriteChapterOutput,
     numericalSystem: boolean = true,
-    language: "zh" | "en" = "zh",
+    language: "zh" | "en" | "vi" = "zh",
   ): Promise<void> {
     const chaptersDir = join(bookDir, "chapters");
     await mkdir(chaptersDir, { recursive: true });
@@ -642,7 +648,9 @@ export class WriterAgent extends BaseAgent {
 
     const heading = language === "en"
       ? `# Chapter ${output.chapterNumber}: ${output.title}`
-      : `# 第${output.chapterNumber}章 ${output.title}`;
+      : language === "vi"
+        ? `# Chương ${output.chapterNumber}: ${output.title}`
+        : `# 第${output.chapterNumber}章 ${output.title}`;
     const chapterContent = [
       heading,
       "",
@@ -730,7 +738,7 @@ export class WriterAgent extends BaseAgent {
     readonly ruleStack: RuleStack;
     readonly externalContext?: string;
     readonly lengthSpec: LengthSpec;
-    readonly language?: "zh" | "en";
+    readonly language?: "zh" | "en" | "vi";
     readonly varianceBrief?: string;
     readonly selectedEvidenceBlock?: string;
   }): string {
@@ -749,7 +757,9 @@ export class WriterAgent extends BaseAgent {
     const userDirectionBlock = directionEntries.length > 0
       ? (language === "en"
           ? `## User direction (overrides model defaults — must follow)\n${renderNarrativeSelectedContext(directionEntries, language)}\n`
-          : `## 用户方向（优先于模型默认，必须遵循）\n${renderNarrativeSelectedContext(directionEntries, language)}\n`)
+          : language === "vi"
+            ? `## Định hướng của người dùng (ưu tiên hơn mặc định của mô hình — bắt buộc tuân theo)\n${renderNarrativeSelectedContext(directionEntries, language)}\n`
+            : `## 用户方向（优先于模型默认，必须遵循）\n${renderNarrativeSelectedContext(directionEntries, language)}\n`)
       : "";
 
     const diagnosticLines = params.ruleStack.sections.diagnostic.length > 0
@@ -765,7 +775,6 @@ export class WriterAgent extends BaseAgent {
       : "";
     const chapterContextBlock = this.buildChapterContextBlock(params.externalContext, language);
     const briefNarrative = renderMemoAsNarrativeBlock(params.chapterMemo, params.chapterIntentData, language);
-
     if (params.language === "en") {
       return `Write chapter ${params.chapterNumber}.
 
@@ -787,6 +796,28 @@ ${varianceBlock}
 ${lengthRequirementBlock}
 - Output PRE_WRITE_CHECK first, then the chapter
 - Output only PRE_WRITE_CHECK, CHAPTER_TITLE, and CHAPTER_CONTENT blocks`;
+    }
+    if (params.language === "vi") {
+      return `Viết chương ${params.chapterNumber}.
+
+${chapterContextBlock}
+
+${userDirectionBlock}
+${briefNarrative}
+
+## Bối cảnh đã chọn
+${contextSections || "(không có)"}
+${selectedEvidenceBlock}
+
+## Ngăn xếp quy tắc
+- Rào chắn bắt buộc: ${params.ruleStack.sections.hard.join(", ") || "(không có)"}
+- Ràng buộc mềm: ${params.ruleStack.sections.soft.join(", ") || "(không có)"}
+- Quy tắc chẩn đoán: ${diagnosticLines}
+
+${varianceBlock}
+${lengthRequirementBlock}
+- Trước hết xuất bảng tự kiểm PRE_WRITE_CHECK, sau đó viết nội dung chương
+- Chỉ xuất ba khối PRE_WRITE_CHECK, CHAPTER_TITLE và CHAPTER_CONTENT`;
     }
 
     return `请续写第${params.chapterNumber}章。
@@ -811,7 +842,7 @@ ${lengthRequirementBlock}
 - 只需输出 PRE_WRITE_CHECK、CHAPTER_TITLE、CHAPTER_CONTENT 三个区块`;
   }
 
-  private buildChapterContextBlock(externalContext: string | undefined, language: "zh" | "en"): string {
+  private buildChapterContextBlock(externalContext: string | undefined, language: "zh" | "en" | "vi"): string {
     const trimmed = externalContext?.trim();
     if (!trimmed) return "";
     if (language === "en") {
@@ -819,6 +850,12 @@ ${lengthRequirementBlock}
 ${trimmed}
 
 Obey this direct instruction for the current chapter. If it specifies a chapter title, use that title exactly in CHAPTER_TITLE. Keep continuity, but do not replace this instruction with the outline fallback.`;
+    }
+    if (language === "vi") {
+      return `## Chỉ dẫn của người dùng cho từng chương (ưu tiên cao nhất)
+${trimmed}
+
+Hãy tuân theo chỉ dẫn trực tiếp này cho chương hiện tại. Nếu chỉ dẫn nêu rõ tên chương, hãy dùng đúng tên đó trong CHAPTER_TITLE. Giữ tính liền mạch, nhưng đừng thay chỉ dẫn này bằng phần dàn ý dự phòng.`;
     }
     return `## 本章用户指令（最高优先级）
 ${trimmed}
@@ -850,7 +887,7 @@ ${trimmed}
     chapterIntent: string,
     contextPackage: ContextPackage,
     ruleStack: RuleStack,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): string {
     const selectedContext = renderNarrativeSelectedContext(contextPackage.selectedContext, language)
       .replace(/^### /gm, "- ");
@@ -874,6 +911,21 @@ ${selectedContext || "- none"}
 - Diagnostic rules: ${ruleStack.sections.diagnostic.join(", ") || "(none)"}
 
 ### Active Overrides
+${overrides}\n`;
+    }
+    if (language === "vi") {
+      return `\n## Đầu vào điều khiển chương
+${narrativeIntent || "(không có)"}
+
+### Bối cảnh đã chọn
+${selectedContext || "- không có"}
+
+### Ngăn xếp quy tắc
+- Rào chắn bắt buộc: ${ruleStack.sections.hard.join(", ") || "(không có)"}
+- Ràng buộc mềm: ${ruleStack.sections.soft.join(", ") || "(không có)"}
+- Quy tắc chẩn đoán: ${ruleStack.sections.diagnostic.join(", ") || "(không có)"}
+
+### Ghi đè đang áp dụng
 ${overrides}\n`;
     }
 
@@ -903,12 +955,13 @@ ${overrides}\n`;
   private verifyPreWriteCheckAlignsWithMemo(
     preWriteCheck: string,
     chapterNumber: number,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): void {
     if (!preWriteCheck || preWriteCheck.trim().length === 0) {
       this.logWarn(language, {
         zh: `第${chapterNumber}章 PRE_WRITE_CHECK 为空，无法对齐 chapter_memo`,
         en: `Chapter ${chapterNumber} PRE_WRITE_CHECK is empty; cannot verify memo alignment`,
+        vi: `Chương ${chapterNumber} có PRE_WRITE_CHECK rỗng; không thể đối chiếu chapter_memo`,
       });
       return;
     }
@@ -919,28 +972,39 @@ ${overrides}\n`;
           { needle: "Do not", label: "Do not" },
           { needle: "end-of-chapter", label: "Required end-of-chapter change" },
         ]
-      : [
-          { needle: "当前任务", label: "当前任务" },
-          { needle: "不要做", label: "不要做" },
-          { needle: "章尾", label: "章尾必须发生的改变" },
-        ];
+      : language === "vi"
+        ? [
+            { needle: "Nhiệm vụ hiện tại", label: "Nhiệm vụ hiện tại" },
+            { needle: "Không được", label: "Không được" },
+            { needle: "thay đổi cuối chương", label: "Thay đổi bắt buộc cuối chương" },
+          ]
+        : [
+            { needle: "当前任务", label: "当前任务" },
+            { needle: "不要做", label: "不要做" },
+            { needle: "章尾", label: "章尾必须发生的改变" },
+          ];
     const missing = required.filter((r) => !preWriteCheck.includes(r.needle)).map((r) => r.label);
 
     if (missing.length > 0) {
       this.logWarn(language, {
         zh: `第${chapterNumber}章 PRE_WRITE_CHECK 缺少 memo 章节检查：${missing.join("、")}`,
         en: `Chapter ${chapterNumber} PRE_WRITE_CHECK missing memo sections: ${missing.join(", ")}`,
+        vi: `Chương ${chapterNumber}: PRE_WRITE_CHECK thiếu các mục chapter_memo: ${missing.join(", ")}`,
       });
     }
   }
 
-  private buildLengthRequirementBlock(lengthSpec: LengthSpec, language: "zh" | "en"): string {
+  private buildLengthRequirementBlock(lengthSpec: LengthSpec, language: "zh" | "en" | "vi"): string {
     if (language === "en") {
       return `Requirements:
 - Target length: ${lengthSpec.target} words
 - Acceptable range: ${lengthSpec.softMin}-${lengthSpec.softMax} words`;
     }
-
+    if (language === "vi") {
+      return `Yêu cầu:
+- Độ dài mục tiêu: ${lengthSpec.target} từ
+- Khoảng cho phép: ${lengthSpec.softMin}-${lengthSpec.softMax} từ`;
+    }
     return `要求：
 - 目标字数：${lengthSpec.target}字
 - 允许区间：${lengthSpec.softMin}-${lengthSpec.softMax}字`;
@@ -1061,7 +1125,7 @@ ${overrides}\n`;
   private async buildRuntimeStateArtifactsIfPresent(
     bookDir: string,
     delta: RuntimeStateDelta | undefined,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
     authoritativeChapterNumber?: number,
     allowReapply?: boolean,
     baselineChapter?: number,
@@ -1097,7 +1161,7 @@ ${overrides}\n`;
   private async resolveRuntimeStateArtifactsForOutput(
     bookDir: string,
     output: WriteChapterOutput,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): Promise<RuntimeStateArtifacts | null> {
     if (!output.runtimeStateDelta) return null;
     const safeDelta = this.normalizeRuntimeStateDeltaChapter(
@@ -1130,7 +1194,7 @@ ${overrides}\n`;
   private async renderAppendedChapterSummary(
     bookDir: string,
     summary: string,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
   ): Promise<string | undefined> {
     const summaryPath = join(bookDir, "story", "chapter_summaries.md");
     let existing = "";
@@ -1140,7 +1204,9 @@ ${overrides}\n`;
       // File doesn't exist yet — start with header
       existing = language === "en"
         ? "# Chapter Summaries\n\n| Chapter | Title | Characters | Key Events | State Changes | Hook Activity | Mood | Chapter Type |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n"
-        : "# 章节摘要\n\n| 章节 | 标题 | 出场人物 | 关键事件 | 状态变化 | 伏笔动态 | 情绪基调 | 章节类型 |\n|------|------|----------|----------|----------|----------|----------|----------|\n";
+        : language === "vi"
+          ? "# Tóm tắt chương\n\n| Chương | Tiêu đề | Nhân vật | Sự kiện chính | Thay đổi trạng thái | Biến động nút thắt | Tâm trạng | Loại chương |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+          : "# 章节摘要\n\n| 章节 | 标题 | 出场人物 | 关键事件 | 状态变化 | 伏笔动态 | 情绪基调 | 章节类型 |\n|------|------|----------|----------|----------|----------|----------|----------|\n";
     }
 
     // Extract only the data row(s) from the summary (skip header lines)
@@ -1148,6 +1214,7 @@ ${overrides}\n`;
       .split("\n")
       .filter((line) =>
         line.startsWith("|")
+        && !line.startsWith("| Chương")
         && !line.startsWith("| 章节")
         && !line.startsWith("| Chapter")
         && !line.startsWith("|--")

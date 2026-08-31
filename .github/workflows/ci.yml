@@ -17,6 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -28,6 +30,19 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      - name: Test Vietnamese localization checker
+        run: pnpm test:vi-localization
+      - name: Check Vietnamese localization
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_ref="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            base_ref="${{ github.event.before }}"
+          else
+            base_ref="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          pnpm check:vi-localization --changed-since "$base_ref"
       - run: pnpm build
       - run: pnpm test
 

@@ -5,7 +5,7 @@ export interface PolishChapterInput {
   readonly chapterContent: string;
   readonly chapterNumber: number;
   readonly chapterMemo?: ChapterMemo;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
   readonly temperature?: number;
 }
 
@@ -37,20 +37,22 @@ export class PolisherAgent extends BaseAgent {
   async polishChapter(input: PolishChapterInput): Promise<PolishChapterOutput> {
     const language = input.language ?? "zh";
     const isEnglish = language === "en";
+    const isVietnamese = language === "vi";
 
     const memoBlock = input.chapterMemo
       ? isEnglish
         ? `\n\n## Chapter Memo (do NOT let polish drift from this goal)\nGoal: ${input.chapterMemo.goal}\n\n${input.chapterMemo.body}`
-        : `\n\n## 章节备忘（润色不得偏离此目标）\ngoal：${input.chapterMemo.goal}\n\n${input.chapterMemo.body}`
+        : isVietnamese
+          ? `\n\n## Memo chương (không để biên tập lệch mục tiêu)\nMục tiêu: ${input.chapterMemo.goal}\n\n${input.chapterMemo.body}`
+          : `\n\n## 章节备忘（润色不得偏离此目标）\ngoal：${input.chapterMemo.goal}\n\n${input.chapterMemo.body}`
       : "";
 
-    const systemPrompt = isEnglish
-      ? buildEnglishSystemPrompt()
-      : buildChineseSystemPrompt();
-
+    const systemPrompt = isEnglish ? buildEnglishSystemPrompt() : isVietnamese ? buildVietnameseSystemPrompt() : buildChineseSystemPrompt();
     const userPrompt = isEnglish
       ? `Polish chapter ${input.chapterNumber}. Return the polished chapter in full, nothing else — no JSON, no headers, no commentary.${memoBlock}\n\n## Chapter Under Polish\n${input.chapterContent}`
-      : `请润色第${input.chapterNumber}章。只返回完整的润色后正文，不要 JSON、不要标题、不要解释。${memoBlock}\n\n## 待润色章节\n${input.chapterContent}`;
+      : isVietnamese
+        ? `Hãy biên tập chương ${input.chapterNumber}. Chỉ trả về đầy đủ chương đã biên tập, không JSON, không tiêu đề, không giải thích.${memoBlock}\n\n## Chương cần biên tập\n${input.chapterContent}`
+        : `请润色第${input.chapterNumber}章。只返回完整的润色后正文，不要 JSON、不要标题、不要解释。${memoBlock}\n\n## 待润色章节\n${input.chapterContent}`;
 
     const response = await this.chat(
       [
@@ -115,6 +117,24 @@ function buildChineseSystemPrompt(): string {
 直接返回润色后的完整章节正文——不要 JSON、不要章节标题行、不要任何解释或进度说明。如果发现必须交给 reviewer 的情节/结构问题，在正文末尾另起一行以 "[polisher-note] " 开头写明，每条一行。没有问题就不加。
 
 保留原文绝大多数句子。只改真正有问题的句子，不要整段重写。修改后章节总长变化不得超过原文字数 ±15%。`;
+}
+
+function buildVietnameseSystemPrompt(): string {
+  return `Bạn là biên tập viên văn xuôi truyện dài tiếng Việt.
+
+## Phạm vi biên tập (ràng buộc cứng)
+
+Chỉ sửa câu chữ, đoạn văn, từ ngữ, dấu câu, chi tiết giác quan và độ tự nhiên của lời thoại. Không thêm hoặc bớt tình tiết, đổi thiết lập nhân vật hay thay đổi tuyến truyện. Nếu gặp lỗi cấu trúc hoặc cốt truyện, chỉ thêm dòng [polisher-note] ở cuối chương; không tự viết lại tình tiết.
+
+## Quy tắc văn phong
+
+- Giữ đoạn văn dễ đọc trên điện thoại, kết hợp câu dài ngắn và ưu tiên động từ chính xác.
+- Lời thoại phải tự nhiên theo nhân vật, quan hệ và bối cảnh; dùng xưng hô tiếng Việt phù hợp.
+- Dùng dấu câu tiếng Việt chuẩn, tránh sáo ngữ và giọng báo cáo của AI.
+
+## Hợp đồng đầu ra
+
+Trả về đầy đủ chương đã biên tập, không JSON, không tiêu đề, không giải thích. Chỉ khi có vấn đề cấu trúc/cốt truyện mới thêm dòng bắt đầu bằng [polisher-note]. Giữ hầu hết câu gốc và tổng độ dài thay đổi trong ±15%.`;
 }
 
 function buildEnglishSystemPrompt(): string {

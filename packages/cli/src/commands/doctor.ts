@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { findProjectRoot, log, logError, GLOBAL_ENV_PATH } from "../utils.js";
-import { fetchWithProxy } from "@actalk/inkos-core";
+import { fetchWithProxy, createLLMClient, chatCompletion, LLMConfigSchema, isApiKeyOptionalForEndpoint, resolveServiceModelsBaseUrl } from "@actalk/inkos-core";
 import {
   ensureNodeRuntimePinFiles,
   evaluateNodeRuntimeSupport,
@@ -15,8 +15,16 @@ import {
   formatDoctorHintOpenAiProbeExhausted,
   formatDoctorHintQuota,
   formatDoctorHintStreamRequirement,
+  formatCliDoctorHeader,
+  formatCliIssuesFound,
+  formatCliAllChecksPassed,
   resolveCliLanguage,
+  formatCliDoctorCheckName,
+  formatCliDoctorCheckDetail,
+  formatCliDoctorProbe,
 } from "../localization.js";
+import { hasActiveGlobalApiKey } from "../project-bootstrap.js";
+import { loadConfig, loadConfigWithDiagnostics } from "../utils.js";
 
 function buildDoctorProbePlans(
   preferredApiFormat: "chat" | "responses" | undefined,
@@ -35,15 +43,15 @@ function buildDoctorProbePlans(
     push(preferredApiFormat, preferredStream ?? false);
     push(preferredApiFormat, !(preferredStream ?? false));
   }
-  const alternate = preferredApiFormat === "responses" ? "chat" : "responses";
-  push(alternate, false);
-  push(alternate, true);
-  push("chat", false);
+
   push("chat", true);
+  push("chat", false);
   push("responses", false);
   push("responses", true);
+
   return plans;
 }
+
 
 export function buildDoctorModelCandidates(
   preferredModel: string | undefined,
@@ -153,7 +161,7 @@ export const doctorCommand = new Command("doctor")
       let hasGlobal = false;
       try {
         const globalContent = await readFile(GLOBAL_ENV_PATH, "utf-8");
-        hasGlobal = globalContent.includes("INKOS_LLM_API_KEY=") && !globalContent.includes("your-api-key-here");
+        hasGlobal = hasActiveGlobalApiKey(globalContent);
       } catch { /* no global config */ }
       checks.push({
         name: "Global Config",
@@ -286,7 +294,7 @@ export const doctorCommand = new Command("doctor")
           detail: `provider=${llmConfig.provider} model=${llmConfig.model} stream=${llmConfig.stream ?? true} baseUrl=${llmConfig.baseUrl}`,
         });
 
-        log("\n  [..] Testing API connectivity...");
+        log(formatCliDoctorProbe(language));
 
         let connected = false;
         let detectedDetail = "";
@@ -382,16 +390,16 @@ export const doctorCommand = new Command("doctor")
     }
 
     // Output
-    log("\nInkOS Doctor\n");
+    log(formatCliDoctorHeader(language));
     for (const check of checks) {
       const icon = check.ok ? "[OK]" : "[!!]";
-      log(`  ${icon} ${check.name}: ${check.detail}`);
+      log(`  ${icon} ${formatCliDoctorCheckName(language, check.name)}: ${formatCliDoctorCheckDetail(language, check.detail)}`);
     }
 
     const failed = checks.filter((c) => !c.ok);
     if (failed.length > 0) {
-      log(`\n${failed.length} issue(s) found.`);
+      log(formatCliIssuesFound(language, failed.length));
     } else {
-      log("\nAll checks passed.");
+      log(formatCliAllChecksPassed(language));
     }
   });

@@ -3,8 +3,10 @@ import {
   buildLengthSpec,
   countChapterLength,
   defaultChapterLength,
+  formatLengthCount,
   isOutsideHardRange,
   isOutsideSoftRange,
+  resolveLengthCountingMode,
 } from "../utils/length-metrics.js";
 
 describe("length metrics", () => {
@@ -16,10 +18,17 @@ describe("length metrics", () => {
     expect(countChapterLength("He looked at the sky.", "en_words")).toBe(5);
   });
 
+  it("counts Vietnamese chapter length using vi_words", () => {
+    expect(countChapterLength("Anh nhìn bầu trời và chờ đợi.", "vi_words")).toBe(7);
+  });
+
   it("defaults chapter length to the language-native unit", () => {
     expect(defaultChapterLength("zh")).toBe(3000);
     expect(defaultChapterLength("en")).toBe(2000);
     expect(defaultChapterLength()).toBe(3000);
+    expect(defaultChapterLength("vi")).toBe(2000);
+    expect(resolveLengthCountingMode("vi")).toBe("vi_words");
+    expect(formatLengthCount(42, "vi_words")).toBe("42 từ");
   });
 
   it("counts prose only for markdown-shaped Chinese chapters", () => {
@@ -53,6 +62,16 @@ describe("length metrics", () => {
     const spec = buildLengthSpec(2200, "en");
 
     expect(spec.countingMode).toBe("en_words");
+    expect(spec.softMin).toBe(1900);
+    expect(spec.softMax).toBe(2500);
+    expect(spec.hardMin).toBe(1600);
+    expect(spec.hardMax).toBe(2800);
+  });
+
+  it("builds a conservative length spec for Vietnamese chapters", () => {
+    const spec = buildLengthSpec(2200, "vi");
+
+    expect(spec.countingMode).toBe("vi_words");
     expect(spec.softMin).toBe(1900);
     expect(spec.softMax).toBe(2500);
     expect(spec.hardMin).toBe(1600);

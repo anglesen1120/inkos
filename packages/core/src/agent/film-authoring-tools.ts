@@ -4,7 +4,6 @@ import { applyGraphDelta } from "../interactive-film/authoring-store.js";
 import type { LLMClient } from "../llm/provider.js";
 import { runWorkerAgentTool } from "./worker-agent.js";
 import { loadStoryGraph } from "../interactive-film/graph-store.js";
-import { buildFilmAuthoringContext } from "../interactive-film/film-context.js";
 import {
   buildWorldAnchorDelta,
   buildAddVariableDelta,
@@ -13,7 +12,7 @@ import {
   buildConnectChoiceDelta,
   buildRemoveNodeDelta,
 } from "../interactive-film/authoring-tools.js";
-import { StoryNodeSchema, type StoryNode } from "../interactive-film/graph-schema.js";
+import { StoryNodeSchema, type StoryGraph, type StoryNode } from "../interactive-film/graph-schema.js";
 import { StoryNodeContentToolSchema, StoryStructureToolSchema } from "../interactive-film/tool-schemas.js";
 import { writeCharacterFacts } from "../interactive-film/memory-link.js";
 import { MemoryDB } from "../state/memory-db.js";
@@ -227,13 +226,106 @@ const FillNodeParams = Type.Object({
   instruction: Type.String({ description: "what this scene should contain (beats, who speaks, choices)" }),
 });
 
-export type FilmAuthoringLanguage = "zh" | "en";
+export type FilmAuthoringLanguage = "zh" | "en" | "vi";
 
 const NODE_SYSTEM_ZH = `你是互动影游编剧。根据当前图上下文和指令，写出指定节点的完整场景、对白、选项和配图方向。choices[].targetNodeId 必须指向已存在的节点 id。完成后调用 submit_story_node。`;
 const NODE_SYSTEM_EN = `You are an interactive film scriptwriter. Using the current graph context and the instruction, write the requested node's complete scene, dialogue, choices, and image direction. Every choices[].targetNodeId must point to an existing node id. Finish by calling submit_story_node.`;
 
+const NODE_SYSTEM_VI = `Bạn là biên kịch phim tương tác. Dựa trên ngữ cảnh đồ thị hiện tại và chỉ dẫn, hãy viết đầy đủ cảnh, đối thoại, lựa chọn và định hướng hình ảnh cho nút được yêu cầu. Mọi choices[].targetNodeId phải trỏ tới một id nút đã tồn tại. Khi hoàn thành, hãy gọi submit_story_node.`;
+
 function nodeSystemPrompt(language: FilmAuthoringLanguage): string {
-  return language === "en" ? NODE_SYSTEM_EN : NODE_SYSTEM_ZH;
+  if (language === "en") return NODE_SYSTEM_EN;
+  if (language === "vi") return NODE_SYSTEM_VI;
+  return NODE_SYSTEM_ZH;
+}
+
+interface FilmContextLabels {
+  readonly film: string;
+  readonly core: string;
+  readonly theme: string;
+  readonly genre: string;
+  readonly rules: string;
+  readonly duration: string;
+  readonly minutes: string;
+  readonly variables: string;
+  readonly nodes: string;
+  readonly characters: string;
+  readonly motivation: string;
+  readonly voice: string;
+}
+
+const FILM_CONTEXT_LABELS: Record<FilmAuthoringLanguage, FilmContextLabels> = {
+  zh: {
+    film: "互动影游",
+    core: "核心",
+    theme: "主题",
+    genre: "题材",
+    rules: "规则",
+    duration: "时长",
+    minutes: "分",
+    variables: "变量",
+    nodes: "节点",
+    characters: "角色档案",
+    motivation: "动机",
+    voice: "口吻",
+  },
+  en: {
+    film: "Interactive film",
+    core: "Core",
+    theme: "Theme",
+    genre: "Genre",
+    rules: "World rules",
+    duration: "Duration",
+    minutes: "minutes",
+    variables: "Variables",
+    nodes: "Nodes",
+    characters: "Character profiles",
+    motivation: "Motivation",
+    voice: "Voice",
+  },
+  vi: {
+    film: "Phim tương tác",
+    core: "Cốt lõi",
+    theme: "Chủ đề",
+    genre: "Thể loại",
+    rules: "Quy tắc thế giới",
+    duration: "Thời lượng",
+    minutes: "phút",
+    variables: "Biến",
+    nodes: "Các nút",
+    characters: "Hồ sơ nhân vật",
+    motivation: "Động lực",
+    voice: "Giọng thoại",
+  },
+};
+
+function buildLocalizedFilmAuthoringContext(graph: StoryGraph, language: FilmAuthoringLanguage): string {
+  const labels = FILM_CONTEXT_LABELS[language];
+  const lines: string[] = [`# ${labels.film}: ${graph.title || graph.projectId}`];
+  if (graph.worldAnchor) {
+    const anchor = graph.worldAnchor;
+    lines.push(
+      `${labels.core}: ${anchor.storyCore} / ${labels.theme}: ${anchor.theme} / ${labels.genre}: ${anchor.genre} / `
+      + `${labels.rules}: ${anchor.worldRules} / ${labels.duration}: ${anchor.durationMinutes} ${labels.minutes}`,
+    );
+  }
+  if (graph.variables.length > 0) {
+    lines.push(`${labels.variables}: ${graph.variables.map((variable) => variable.name).join(", ")}`);
+  }
+  lines.push(`${labels.nodes}:`);
+  for (const node of graph.nodes) {
+    const edges = node.choices.map((choice) => `${choice.text}→${choice.targetNodeId}`).join(", ");
+    lines.push(`- ${node.id}[${node.type}] ${node.title}${edges ? ` -> ${edges}` : ""}`);
+  }
+  if (graph.characters.length === 0) return lines.join("\n");
+
+  const characters = graph.characters.map((character) => {
+    const profile = character.voiceProfile;
+    const voice = profile ? [profile.speakingRhythm, profile.vocabulary].filter(Boolean).join(" / ") : "";
+    return `- ${character.name} (${character.role}) ${labels.motivation}: ${character.motivation}`
+      + (voice ? ` ${labels.voice}: ${voice}` : "");
+  });
+  return [lines.join("\n"), [`${labels.characters}:`, ...characters].join("\n")].join("\n\n");
 }
 
 function graphUpdatedDetails(rev: number, promptId: string, extra: Record<string, unknown> = {}) {
@@ -258,14 +350,16 @@ export function createFillNodeTool(
     parameters: FillNodeParams,
     async execute(_id, params: Static<typeof FillNodeParams>, signal) {
       const graph = await loadStoryGraph(projectRoot, projectId);
-      const context = graph ? buildFilmAuthoringContext(graph) : "(empty graph)";
+      const context = graph ? buildLocalizedFilmAuthoringContext(graph, language) : "(empty graph)";
       const systemPrompt = await appendPromptPackGuidance(nodeSystemPrompt(language), {
         promptId: "interactive-film.script",
         projectRoot,
       });
       const userPrompt = language === "en"
         ? `${context}\n\nNode id to fill: ${params.nodeId}\nInstruction: ${params.instruction}`
-        : `${context}\n\n要填的节点 id：${params.nodeId}\n指令：${params.instruction}`;
+        : language === "vi"
+          ? `${context}\n\nId nút cần viết: ${params.nodeId}\nChỉ dẫn: ${params.instruction}`
+          : `${context}\n\n要填的节点 id：${params.nodeId}\n指令：${params.instruction}`;
       const node = await deps.submitNode(systemPrompt, userPrompt, params.nodeId, signal);
       const { rev } = await applyGraphDelta({
         projectRoot,
@@ -293,7 +387,7 @@ export function createReviseNodeTool(
     parameters: FillNodeParams,
     async execute(_id, params: Static<typeof FillNodeParams>, signal) {
       const graph = await loadStoryGraph(projectRoot, projectId);
-      const context = graph ? buildFilmAuthoringContext(graph) : "(empty graph)";
+      const context = graph ? buildLocalizedFilmAuthoringContext(graph, language) : "(empty graph)";
       const current = graph?.nodes.find((n) => n.id === params.nodeId);
       const systemPrompt = await appendPromptPackGuidance(nodeSystemPrompt(language), {
         promptId: "interactive-film.script",
@@ -301,7 +395,9 @@ export function createReviseNodeTool(
       });
       const userPrompt = language === "en"
         ? `${context}\n\nNode id to revise: ${params.nodeId}\nCurrent content: ${JSON.stringify(current ?? {})}\nRevision instruction: ${params.instruction}`
-        : `${context}\n\n要修改的节点 id：${params.nodeId}\n现有内容：${JSON.stringify(current ?? {})}\n修改指令：${params.instruction}`;
+        : language === "vi"
+          ? `${context}\n\nId nút cần sửa: ${params.nodeId}\nNội dung hiện tại: ${JSON.stringify(current ?? {})}\nChỉ dẫn sửa: ${params.instruction}`
+          : `${context}\n\n要修改的节点 id：${params.nodeId}\n现有内容：${JSON.stringify(current ?? {})}\n修改指令：${params.instruction}`;
       const node = await deps.submitNode(systemPrompt, userPrompt, params.nodeId, signal);
       const { rev } = await applyGraphDelta({
         projectRoot,
@@ -335,10 +431,16 @@ export function filmLLMDepsFromClient(
 const DraftStructureParams = Type.Object({
   instruction: Type.String({ description: "what skeleton to draft (acts, branch points, endings)" }),
 });
-
 const STRUCT_SYSTEM_ZH = `你是互动影游编剧。根据上下文与指令设计分支骨架。恰好 1 个 type=start，至少 2 个 branch，至少 2 个差异化 ending 节点；每条路径都能到某个 ending。完成后调用 submit_story_structure。`;
 const STRUCT_SYSTEM_EN = `You are an interactive film scriptwriter. Using the context and the instruction, design the branching skeleton. Include exactly 1 node with type=start, at least 2 branch nodes, and at least 2 clearly differentiated ending nodes; every path must reach an ending. Finish by calling submit_story_structure.`;
 
+const STRUCT_SYSTEM_VI = `Bạn là biên kịch phim tương tác. Dựa trên ngữ cảnh và chỉ dẫn, hãy thiết kế khung phân nhánh. Gồm đúng 1 nút type=start, ít nhất 2 nút branch và ít nhất 2 nút ending khác biệt rõ ràng; mọi đường đi đều phải tới được một ending. Khi hoàn thành, hãy gọi submit_story_structure.`;
+
+function structureSystemPrompt(language: FilmAuthoringLanguage): string {
+  if (language === "en") return STRUCT_SYSTEM_EN;
+  if (language === "vi") return STRUCT_SYSTEM_VI;
+  return STRUCT_SYSTEM_ZH;
+}
 export function createDraftStructureTool(
   projectRoot: string,
   projectId: string,
@@ -352,14 +454,16 @@ export function createDraftStructureTool(
     parameters: DraftStructureParams,
     async execute(_id, params: Static<typeof DraftStructureParams>, signal) {
       const graph = await loadStoryGraph(projectRoot, projectId);
-      const context = graph ? buildFilmAuthoringContext(graph) : "(empty graph)";
-      const systemPrompt = await appendPromptPackGuidance(language === "en" ? STRUCT_SYSTEM_EN : STRUCT_SYSTEM_ZH, {
+      const context = graph ? buildLocalizedFilmAuthoringContext(graph, language) : "(empty graph)";
+      const systemPrompt = await appendPromptPackGuidance(structureSystemPrompt(language), {
         promptId: "interactive-film.story-graph",
         projectRoot,
       });
       const userPrompt = language === "en"
         ? `${context}\n\nSkeleton instruction: ${params.instruction}`
-        : `${context}\n\n骨架指令：${params.instruction}`;
+        : language === "vi"
+          ? `${context}\n\nChỉ dẫn khung: ${params.instruction}`
+          : `${context}\n\n骨架指令：${params.instruction}`;
       const nodes = await deps.submitStructure(systemPrompt, userPrompt, signal);
       const { graph: next, rev } = await applyGraphDelta({
         projectRoot,

@@ -18,7 +18,7 @@ export interface PostWriteViolation {
 
 export function normalizePostWriteSurface(
   content: string,
-  languageOverride?: "zh" | "en",
+  languageOverride?: "zh" | "en" | "vi",
 ): string {
   let normalized = stripPostWriteMetaLines(content);
   if (languageOverride !== "en") {
@@ -82,12 +82,16 @@ export function validatePostWrite(
   content: string,
   genreProfile: GenreProfile,
   bookRules: BookRules | null,
-  languageOverride?: "zh" | "en",
+  languageOverride?: "zh" | "en" | "vi",
 ): ReadonlyArray<PostWriteViolation> {
   const violations: PostWriteViolation[] = [];
 
+  const language = languageOverride ?? genreProfile.language;
+  const isEnglish = language === "en";
+  if (language === "vi") {
+    return validatePostWriteVietnamese(content, genreProfile, bookRules);
+  }
   // Skip Chinese-specific rules for English content
-  const isEnglish = (languageOverride ?? genreProfile.language) === "en";
   if (isEnglish) {
     // For English, only run book-specific prohibitions and paragraph length check
     return validatePostWriteEnglish(content, genreProfile, bookRules);
@@ -304,9 +308,12 @@ export function validatePostWrite(
 function detectNarrativePersonDrift(
   content: string,
   bookRules: BookRules | null,
+  language: "zh" | "vi" = "zh",
 ): PostWriteViolation | null {
   if (bookRules?.narrativePerson !== "first") return null;
-  const innerStateSlip = detectFirstPersonInnerStateSlip(content);
+  const innerStateSlip = language === "vi"
+    ? detectVietnameseFirstPersonInnerStateSlip(content)
+    : detectFirstPersonInnerStateSlip(content);
   if (innerStateSlip) {
     return {
       rule: "叙事人称",
@@ -318,16 +325,34 @@ function detectNarrativePersonDrift(
 
   const name = bookRules.protagonist?.name?.trim();
   if (!name) return null;
-  const woCount = content.split("我").length - 1;
+  const firstPersonCount = language === "vi"
+    ? (content.match(/(?:^|[\s,;:([{"“])(?:tôi|ta|mình|tớ|chúng tôi|chúng ta)(?=$|[\s,.;:!?…\])}"”])/giu)?.length ?? 0)
+    : content.split("我").length - 1;
   const nameCount = content.split(name).length - 1;
-  // Long chapter, almost no 我, protagonist repeatedly named → third-person prose.
-  if (content.length >= 800 && woCount < 12 && nameCount >= 6 && nameCount > woCount) {
+  // Long chapter, almost no first-person references, protagonist repeatedly named → third-person prose.
+  if (content.length >= 800 && firstPersonCount < 12 && nameCount >= 6 && nameCount > firstPersonCount) {
     return {
       rule: "叙事人称",
       severity: "error",
-      description: `本书设定为第一人称，但本章几乎不用「我」（${woCount} 次）却反复以「${name}」第三人称叙述（${nameCount} 次）`,
+      description: `本书设定为第一人称，但本章几乎不用「我」（${firstPersonCount} 次）却反复以「${name}」第三人称叙述（${nameCount} 次）`,
       suggestion: "改用第一人称（主角内心视角）重写本章叙事",
     };
+  }
+  return null;
+}
+
+
+function detectVietnameseFirstPersonInnerStateSlip(content: string): string | null {
+  const sentences = content
+    .split(/(?<=[.!?…])|\n+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  for (const sentence of sentences) {
+    if (!/^(?:anh ấy|cô ấy|ông ấy|bà ấy|hắn|nó)(?=\s|[,.!?…]|$)/iu.test(sentence)) continue;
+    if (/^(?:anh ấy|cô ấy|ông ấy|bà ấy|hắn|nó)(?=\s|[,.!?…]|$).{0,40}(?:cảm thấy|cảm nhận|nghĩ|biết|nhận ra|ý thức được|tự nhủ|trong lòng|trong đầu|lo sợ)(?=\s|[,.!?…]|$)/iu.test(sentence)) {
+      return sentence.length > 40 ? `${sentence.slice(0, 39)}…` : sentence;
+    }
   }
   return null;
 }
@@ -354,7 +379,7 @@ function detectFirstPersonInnerStateSlip(content: string): string | null {
 export function detectCrossChapterRepetition(
   currentContent: string,
   recentChaptersContent: string,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): ReadonlyArray<PostWriteViolation> {
   if (!recentChaptersContent || recentChaptersContent.length < 100) return [];
 
@@ -418,7 +443,7 @@ export function detectCrossChapterRepetition(
 export function detectParagraphLengthDrift(
   currentContent: string,
   recentChaptersContent: string,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): ReadonlyArray<PostWriteViolation> {
   if (!recentChaptersContent || recentChaptersContent.trim().length === 0) return [];
 
@@ -536,6 +561,83 @@ function validatePostWriteEnglish(
       });
     }
   }
+  return violations;
+}
+
+/** Vietnamese-specific post-write validation rules. */
+function validatePostWriteVietnamese(
+  content: string,
+  genreProfile: GenreProfile,
+  bookRules: BookRules | null,
+): ReadonlyArray<PostWriteViolation> {
+  const violations: PostWriteViolation[] = [];
+
+  // Vietnamese prose must remain concrete rather than stacking AI hedges or
+  // report-like narration. Keep this separate from the Chinese marker rules.
+  const vagueMarkers = ["dường như", "có lẽ", "hình như", "có vẻ"];
+  const vagueCount = vagueMarkers.reduce((count, marker) =>
+    count + (content.toLocaleLowerCase("vi-VN").match(new RegExp(marker, "g"))?.length ?? 0), 0);
+  if (vagueCount >= 3) {
+    violations.push({
+      rule: "vi-natural-prose",
+      severity: "warning",
+      description: `Văn xuôi tiếng Việt lặp ${vagueCount} từ ngữ phỏng đoán, làm mờ hành động và cảm xúc.`,
+      suggestion: "Thay lời kể mơ hồ bằng hành động, cảm giác hoặc chi tiết quan sát cụ thể.",
+    });
+  }
+
+  const dialogueLines = content.split(/\n+/).map((line) => line.trim()).filter((line) => /^(?:—|[-])\s*[^\n]+/.test(line));
+  const addressWords = /\b(?:anh|chị|em|cô|chú|bác|mẹ|ba|bố|con|tôi|mình|cậu)\b/iu;
+  const anonymousDialogueLines = dialogueLines.filter((line) => !addressWords.test(line) && !/["“”]/.test(line));
+  const hasUnterminatedAnonymousExchange = anonymousDialogueLines.length >= 2
+    && anonymousDialogueLines.some((line) => !/[.!?…]$/.test(line));
+  if (hasUnterminatedAnonymousExchange) {
+    violations.push({
+      rule: "vi-dialogue-naturalness",
+      severity: "warning",
+      description: "Các lượt thoại tiếng Việt thiếu dấu kết câu và không cho thấy rõ quan hệ hoặc cách xưng hô giữa nhân vật.",
+      suggestion: "Hoàn chỉnh dấu kết câu và điều chỉnh lời thoại theo tuổi tác, thân phận, quan hệ; dùng xưng hô tiếng Việt tự nhiên.",
+    });
+  }
+
+  const hasChinesePunctuation = /[。！？]/.test(content);
+  const hasUnterminatedDialogue = dialogueLines.some((line) => !/[.!?…]$/.test(line));
+  if (hasChinesePunctuation || hasUnterminatedDialogue) {
+    violations.push({
+      rule: "vi-punctuation",
+      severity: "warning",
+      description: "Văn bản tiếng Việt có dấu câu không phù hợp hoặc lời thoại chưa kết thúc bằng dấu câu.",
+      suggestion: "Dùng dấu câu tiếng Việt nhất quán; kết thúc lời thoại bằng dấu chấm, hỏi, cảm hoặc ba chấm khi phù hợp.",
+    });
+  }
+
+  const paragraphs = content.split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
+  const longParagraphs = paragraphs.filter((paragraph) => paragraph.length > 300);
+  if (longParagraphs.length >= 2) {
+    violations.push({
+      rule: "vi-paragraph-length",
+      severity: "warning",
+      description: `${longParagraphs.length} đoạn văn tiếng Việt vượt quá 300 ký tự, khó đọc trên điện thoại.`,
+      suggestion: "Tách đoạn tại điểm chuyển động tác, quan sát hoặc cảm xúc; giữ nhịp câu dài ngắn tự nhiên.",
+    });
+  }
+  violations.push(...detectParagraphShapeWarnings(content, "vi"));
+
+  if (bookRules?.prohibitions) {
+    for (const prohibition of bookRules.prohibitions) {
+      if (prohibition.length >= 2 && prohibition.length <= 30 && content.includes(prohibition)) {
+        violations.push({
+          rule: "本书禁忌",
+          severity: "error",
+          description: `Xuất hiện nội dung cấm của sách: "${prohibition}"`,
+          suggestion: "Xóa hoặc viết lại nội dung này.",
+        });
+      }
+    }
+  }
+
+  const personViolation = detectNarrativePersonDrift(content, bookRules, "vi");
+  if (personViolation) violations.push(personViolation);
 
   return violations;
 }
@@ -543,7 +645,7 @@ function validatePostWriteEnglish(
 function appendParagraphShapeWarnings(
   violations: PostWriteViolation[],
   content: string,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): void {
   const shape = analyzeParagraphShape(content, language);
   if (shape.paragraphs.length < 4) return;
@@ -587,7 +689,7 @@ function appendParagraphShapeWarnings(
 
 export function detectParagraphShapeWarnings(
   content: string,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): ReadonlyArray<PostWriteViolation> {
   const violations: PostWriteViolation[] = [];
   appendParagraphShapeWarnings(violations, content, language);
@@ -599,7 +701,7 @@ function isDialogueParagraph(paragraph: string): boolean {
   return /^[""「『'《]/.test(trimmed) || /^[""]/.test(trimmed) || /^——/.test(trimmed);
 }
 
-function analyzeParagraphShape(content: string, language: "zh" | "en"): ParagraphShape {
+function analyzeParagraphShape(content: string, language: "zh" | "en" | "vi"): ParagraphShape {
   const paragraphs = extractParagraphs(content);
   // Exclude dialogue lines from short paragraph counting — dialogue is naturally short
   const narrativeParagraphs = paragraphs.filter((p) => !isDialogueParagraph(p));
@@ -714,7 +816,7 @@ export function detectDuplicateTitle(
 export function resolveDuplicateTitle(
   newTitle: string,
   existingTitles: ReadonlyArray<string>,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
   options?: {
     readonly content?: string;
   },
@@ -768,7 +870,7 @@ export function resolveDuplicateTitle(
 function detectTitleCollapse(
   newTitle: string,
   existingTitles: ReadonlyArray<string>,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): ReadonlyArray<PostWriteViolation> {
   const recentTitles = existingTitles
     .map((title) => title.trim())
@@ -815,7 +917,7 @@ function detectTitleCollapse(
 function regenerateDuplicateTitle(
   baseTitle: string,
   existingTitles: ReadonlyArray<string>,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
   content?: string,
 ): string | undefined {
   if (!content || !content.trim()) {
@@ -837,7 +939,7 @@ function regenerateDuplicateTitle(
 function regenerateCollapsedTitle(
   baseTitle: string,
   existingTitles: ReadonlyArray<string>,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
   content?: string,
 ): string | undefined {
   if (!content || !content.trim()) {

@@ -29,6 +29,45 @@ const BUILTIN_SKILL_IDS = [
   "inkos-translation",
 ] as const;
 
+const VIETNAMESE_SKILL_CONTRACTS = [
+  {
+    id: "inkos-long-writing",
+    name: "inkos-long-writing",
+    description: "长篇小说的场景构造、人物因果、信息释放与连载节奏。Used by InkOS long-form workers as their shared craft method.",
+    guidance: "quan hệ và quyền lực",
+  },
+  {
+    id: "inkos-short-writing",
+    name: "inkos-short-writing",
+    description: "12–18章商业短篇的构思、一次写完、整篇审改与包装。Use for confirmed standalone short-fiction production.",
+    guidance: "bản thảo và nội dung giới thiệu",
+  },
+  {
+    id: "inkos-script-writing",
+    name: "inkos-script-writing",
+    description: "小说、创意与大纲到可演剧本的改编方法。Used for confirmed script and short-drama production.",
+    guidance: "tuổi tác, địa vị, mức độ thân mật",
+  },
+  {
+    id: "inkos-interactive-film",
+    name: "inkos-interactive-film",
+    description: "互动影游的剧情树、变量旗标、可拍节点、多结局与资产连续性方法。Used for creation and authoring of interactive-film projects.",
+    guidance: "trạng thái tích lũy",
+  },
+  {
+    id: "inkos-play-world",
+    name: "inkos-play-world",
+    description: "品类中立的开放世界与分支互动推进方法。Used by InkOS Play workers for coherent action, state, time, and scene progression.",
+    guidance: "trạng thái quan hệ hiện tại",
+  },
+  {
+    id: "inkos-translation",
+    name: "inkos-translation",
+    description: "长文任意语言互译、术语一致性、分段续跑与章节审校方法。Used by InkOS translation workers.",
+    guidance: "danh xưng, cách xưng hô, đại từ",
+  },
+] as const;
+
 describe("external skill loader", () => {
   let root: string;
 
@@ -69,6 +108,18 @@ describe("external skill loader", () => {
       }),
     ]));
   });
+
+  it.each(VIETNAMESE_SKILL_CONTRACTS)(
+    "preserves $id frontmatter and loads its UTF-8 Vietnamese guidance",
+    async ({ id, name, description, guidance }) => {
+      const loaded = await loadBuiltinAgentSkills();
+      const loadedSkill = loaded.skills.find((skill) => skill.id === id);
+
+      expect(loadedSkill).toMatchObject({ name, description });
+      expect(loadedSkill?.body).toContain("## Hướng dẫn đầu ra tiếng Việt");
+      expect(loadedSkill?.body).toContain(guidance);
+    },
+  );
 
   it("lets a project skill replace a built-in skill with the same id", async () => {
     const skillDir = join(root, ".agents", "skills", "inkos-story-review");

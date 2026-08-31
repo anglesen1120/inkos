@@ -51,6 +51,21 @@ describe("buildStudioBookConfig", () => {
     expect(config.language).toBe("en");
     expect(config.id).toBe("english-book");
   });
+
+  it("normalizes Vietnamese language aliases for created books", () => {
+    const config = buildStudioBookConfig(
+      {
+        title: "Vietnamese Book",
+        genre: "hiện đại",
+        platform: "wattpad",
+        language: "vi-VN",
+      },
+      "2026-03-30T00:00:00.000Z",
+    );
+
+    expect(config.language).toBe("vi");
+    expect(config.chapterWordCount).toBe(2000);
+  });
 });
 
 describe("waitForStudioBookReady", () => {

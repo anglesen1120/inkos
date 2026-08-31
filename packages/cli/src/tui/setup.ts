@@ -106,6 +106,37 @@ export function buildInteractiveSetupCopy(locale: TuiLocale): InteractiveSetupCo
     };
   }
 
+  if (locale === "vi-VN") {
+    return {
+      title: "Cấu hình LLM",
+      subtitle: "Cấu hình nhà cung cấp model để bắt đầu viết.",
+      steps: {
+        provider: "Nhà cung cấp",
+        baseUrl: "Base URL",
+        apiKey: "API Key",
+        model: "Model",
+        scope: "Phạm vi lưu",
+      },
+      hints: {
+        provider: "openai / anthropic / kkaiapi / custom (proxy tương thích OpenAI)",
+        baseUrl: "Endpoint API của bạn",
+        apiKey: "Dán API key của nhà cung cấp đã chọn.",
+        model: "ví dụ gpt-4o, claude-sonnet-4-20250514, deepseek-chat",
+        scope: "global = mọi dự án, project = chỉ thư mục này",
+      },
+      defaults: {
+        provider: "openai",
+        baseUrl: "(mặc định)",
+        scope: "[global]",
+      },
+      scopeChoices: {
+        global: "mọi dự án",
+        project: "thư mục này",
+      },
+      savedTo: "Đã lưu vào",
+    };
+  }
+
   return {
     title: "模型配置",
     subtitle: "配置模型服务后即可开始使用。",
@@ -146,6 +177,14 @@ export function buildAutoInitMessages(projectName: string, locale: TuiLocale): {
       initializing: `Initializing project in ${projectName}/ ...`,
       initialized: "Project initialized",
       envTemplateHeader: "# LLM Configuration — run inkos tui to configure interactively",
+    };
+  }
+
+  if (locale === "vi-VN") {
+    return {
+      initializing: `Đang khởi tạo dự án trong ${projectName}/ ...`,
+      initialized: "Dự án đã khởi tạo",
+      envTemplateHeader: "# Cấu hình LLM — chạy inkos tui để cấu hình tương tác",
     };
   }
 
@@ -225,10 +264,9 @@ export async function interactiveLlmSetup(
     console.log(c(`     ${copy.hints.scope}`, dim));
     const scope = await rl.question(`     ${c("❯", cyan)} ${c(copy.defaults.scope, dim)} `);
     const useGlobal = scope.trim().toLowerCase() !== "project";
-    const effectiveBaseUrl = baseUrl.trim() || (provider === "kkaiapi" ? providerDefaultBaseUrl : "");
+    const effectiveBaseUrl = baseUrl.trim() || (provider === "kkaiapi" ? KKAIAPI_BASE_URL : "");
     const finalProvider = resolveSetupProvider(provider, effectiveBaseUrl);
     const finalService = resolveSetupService(provider, effectiveBaseUrl);
-
     const envContent = [
       `INKOS_LLM_PROVIDER=${finalProvider}`,
       ...(finalService ? [`INKOS_LLM_SERVICE=${finalService}`] : []),
@@ -257,6 +295,7 @@ export async function interactiveLlmSetup(
 async function autoInit(cwd: string): Promise<void> {
   const projectName = basename(cwd);
   const locale = resolveTuiLocale();
+  const projectLanguage = locale === "en" ? "en" : locale === "vi-VN" ? "vi" : "zh";
   const messages = buildAutoInitMessages(projectName, locale);
   console.log();
   console.log(`  ${c("◌", cyan)} ${c(messages.initializing, dim)}`);
@@ -267,7 +306,7 @@ async function autoInit(cwd: string): Promise<void> {
   const config = {
     name: projectName,
     version: "0.1.0",
-    language: "zh",
+    language: projectLanguage,
     llm: {
       provider: process.env.INKOS_LLM_PROVIDER ?? "openai",
       baseUrl: process.env.INKOS_LLM_BASE_URL ?? "",

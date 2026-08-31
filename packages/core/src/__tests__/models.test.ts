@@ -57,6 +57,11 @@ describe("BookConfigSchema", () => {
     expect(result.platform).toBe("tomato");
   });
 
+  it("accepts canonical Vietnamese language", () => {
+    const result = BookConfigSchema.parse({ ...validBook, language: "vi" });
+    expect(result.language).toBe("vi");
+  });
+
   it("applies default targetChapters and chapterWordCount", () => {
     const minimal = {
       id: "b1",
@@ -338,6 +343,18 @@ describe("ProjectConfigSchema", () => {
     const result = ProjectConfigSchema.parse(validProject);
     expect(result.name).toBe("my-project");
     expect(result.version).toBe("0.1.0");
+  });
+
+  it("accepts canonical Vietnamese language", () => {
+    const result = ProjectConfigSchema.parse({ ...validProject, language: "vi" });
+    expect(result.language).toBe("vi");
+  });
+
+  it("normalizes Vietnamese locale aliases to canonical vi", () => {
+    for (const language of ["vi-VN", "vi_VN", "vi_VN.UTF-8"]) {
+      const result = ProjectConfigSchema.parse({ ...validProject, language });
+      expect(result.language).toBe("vi");
+    }
   });
 
   it("applies default daemon config", () => {

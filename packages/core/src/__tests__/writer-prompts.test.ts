@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BookConfig } from "../models/book.js";
 import type { GenreProfile } from "../models/genre-profile.js";
 import { LengthSpecSchema } from "../models/length-governance.js";
-import { buildWriterSystemPrompt, buildGoldenOpeningDiscipline } from "../agents/writer-prompts.js";
+import { buildWriterSystemPrompt, buildGoldenOpeningDiscipline, buildVietnameseGenreGuidance } from "../agents/writer-prompts.js";
 import { BookRulesSchema } from "../models/book-rules.js";
 
 const BOOK: BookConfig = {
@@ -230,5 +230,85 @@ describe("buildWriterSystemPrompt", () => {
 
     expect(prompt).toContain("English Variance Brief");
     expect(prompt).toContain("resistance-bearing exchange");
+  });
+
+  it("uses Vietnamese wrappers while preserving supplied Vietnamese context", () => {
+    const rules = BookRulesSchema.parse({
+      protagonist: {
+        name: "Mai",
+        personalityLock: ["điềm tĩnh"],
+        behavioralConstraints: ["không bỏ rơi đồng đội"],
+      },
+      prohibitions: ["không tiết lộ bí mật"],
+      genreLock: { primary: "fantasy", forbidden: ["xuyên không"] },
+    });
+    const prompt = buildWriterSystemPrompt(
+      BOOK,
+      {
+        ...GENRE,
+        language: "vi",
+        name: "Kỳ ảo",
+        fatigueWords: ["bỗng nhiên"],
+        pacingRule: "Tăng nhịp ở cuối chương.",
+      },
+      rules,
+      "# Quy tắc do người dùng viết\n\nGiữ bí mật về nguồn gốc của Mai.",
+      "# Nội dung thể loại\n\nMa thuật có giá phải trả.",
+      "# Hướng dẫn phong cách\n\nCâu văn ngắn và giàu hình ảnh.",
+      "Nhịp câu thay đổi theo cảm xúc.",
+      4,
+      "creative",
+      undefined,
+      "vi",
+    );
+
+    expect(prompt).toContain("## Quy tắc thể loại (Kỳ ảo)");
+    expect(prompt).toContain("## Nguyên tắc nhân vật chính (Mai)");
+    expect(prompt).toContain("## Quy tắc riêng của sách");
+    expect(prompt).toContain("## Hướng dẫn văn phong");
+    expect(prompt).toContain("## Dấu vân tay văn phong (mục tiêu mô phỏng)");
+    expect(prompt).toContain("Ma thuật có giá phải trả.");
+    expect(prompt).toContain("Giữ bí mật về nguồn gốc của Mai.");
+    expect(prompt).toContain("Câu văn ngắn và giàu hình ảnh.");
+    expect(prompt).toContain("Nhịp câu thay đổi theo cảm xúc.");
+    expect(prompt).not.toContain("## 题材规范");
+    expect(prompt).not.toContain("## 主角铁律");
+    expect(prompt).not.toContain("## 本书专属规则");
+    expect(prompt).not.toContain("## 文风指南");
+    expect(prompt).not.toContain("## 文风指纹");
+  });
+  it("preserves shared genre mechanics while adding canonical Vietnamese guidance", () => {
+    const mixedLanguageBody = "# Mechanics / 机制\n\n- Arcane debt: 月影债\n- Proper name: Lady Vân-9 / 玄霜";
+    const genre = {
+      ...GENRE,
+      name: "Kỳ ảo / 奇幻",
+      fatigueWords: ["bỗng nhiên", "骤然"],
+      pacingRule: "Escalate after 月影债; giữ nguyên Lady Vân-9.",
+    };
+
+    const guidance = buildVietnameseGenreGuidance(genre, mixedLanguageBody);
+    const prompt = buildWriterSystemPrompt(
+      BOOK,
+      genre,
+      null,
+      "",
+      mixedLanguageBody,
+      "",
+      undefined,
+      4,
+      "creative",
+      undefined,
+      "vi",
+    );
+
+    for (const output of [guidance, prompt]) {
+      expect(output).toContain(mixedLanguageBody);
+      expect(output).toContain("có giá trị bắt buộc");
+      expect(output).toContain("áp dụng theo đúng ý nghĩa");
+      expect(output).toContain("không dịch hoặc viết lại các quy tắc cơ chế và tên riêng");
+      expect(output).toContain("Lady Vân-9 / 玄霜");
+      expect(output).not.toContain("## 题材规范");
+      expect(output).not.toContain("动笔前先判断本章类型");
+    }
   });
 });

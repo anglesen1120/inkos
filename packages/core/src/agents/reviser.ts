@@ -388,7 +388,7 @@ ${chapterContent}`;
     protagonistBlock: string;
     numericalRule: string;
     lengthGuardrail: string;
-    resolvedLanguage: "zh" | "en";
+    resolvedLanguage: "zh" | "en" | "vi";
     lengthSpec?: LengthSpec;
     autoOutputMode: AutoOutputMode;
   }): string {
@@ -506,7 +506,7 @@ REPLACEMENT_TEXT:
     numericalRule: string;
     lengthGuardrail: string;
     mode: ReviseMode;
-    resolvedLanguage: "zh" | "en";
+    resolvedLanguage: "zh" | "en" | "vi";
   }): string {
     const { langPrefix, gp, protagonistBlock, numericalRule, lengthGuardrail, mode } = params;
     const modeDesc = MODE_DESCRIPTIONS[mode];

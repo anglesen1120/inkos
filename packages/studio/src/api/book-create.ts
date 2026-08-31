@@ -2,6 +2,15 @@ import { normalizePlatformOrOther, defaultChapterLength, type Platform } from "@
 export { waitForStudioBookReady } from "../lib/book-ready.js";
 export type { StudioBookDetail, WaitForStudioBookReadyOptions } from "../lib/book-ready.js";
 
+type StudioLanguage = "zh" | "en" | "vi";
+
+function normalizeStudioBookLanguage(language?: string): StudioLanguage | undefined {
+  if (language === "en") return "en";
+  if (language === "vi" || language === "vi-VN" || language === "vi_VN" || language === "vi_VN.UTF-8") return "vi";
+  if (language === "zh") return "zh";
+  return undefined;
+}
+
 export interface StudioCreateBookBody {
   readonly title: string;
   readonly genre: string;
@@ -20,7 +29,7 @@ export interface StudioBookConfigDraft {
   readonly status: "outlining";
   readonly targetChapters: number;
   readonly chapterWordCount: number;
-  readonly language?: "zh" | "en";
+  readonly language?: StudioLanguage;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -30,6 +39,7 @@ export function normalizeStudioPlatform(platform?: string): Platform {
 }
 
 export function buildStudioBookConfig(body: StudioCreateBookBody, now: string): StudioBookConfigDraft {
+  const language = normalizeStudioBookLanguage(body.language);
   return {
     id: body.title
       .toLowerCase()
@@ -41,12 +51,8 @@ export function buildStudioBookConfig(body: StudioCreateBookBody, now: string): 
     genre: body.genre,
     status: "outlining",
     targetChapters: body.targetChapters ?? 200,
-    chapterWordCount: body.chapterWordCount ?? defaultChapterLength(body.language === "en" ? "en" : "zh"),
-    ...(body.language === "en"
-      ? { language: "en" as const }
-      : body.language === "zh"
-        ? { language: "zh" as const }
-        : {}),
+    chapterWordCount: body.chapterWordCount ?? defaultChapterLength(language === "en" || language === "vi" ? "en" : "zh"),
+    ...(language ? { language } : {}),
     createdAt: now,
     updatedAt: now,
   };

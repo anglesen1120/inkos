@@ -35,7 +35,7 @@ describe("storyboard creation runner", () => {
       _client: unknown,
       _model: string,
       input: { projectId: string; title: string },
-      options?: { language?: "zh" | "en" },
+      options?: { language?: "zh" | "en" | "vi" },
     ) => {
       const en = options?.language === "en";
       return Promise.resolve({
@@ -546,6 +546,141 @@ describe("storyboard creation runner", () => {
     ]);
   });
 
+
+  it("runs storyboard creation in Vietnamese with bilingual parser headings and literal Prompt lines", async () => {
+    chatCompletionMock.mockResolvedValueOnce({
+      content: [
+        "# Sổ cái kho lạnh Phân cảnh",
+        "",
+        "## 分镜表（Bảng phân cảnh）",
+        "Cú máy 1: Nữ thu ngân mở cánh cửa kho lạnh.",
+        "",
+        "## 图像提示词（Prompt hình ảnh）",
+        "Prompt: cửa kho lạnh, nữ thu ngân mở cửa, hiện thực lạnh, 9:16",
+      ].join("\n"),
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+    });
+
+    const result = await runStoryboardCreation({
+      projectRoot: root,
+      runtime: makeRuntime(root),
+      title: "Sổ cái kho lạnh",
+      instruction: "Tách đoạn truyện thành phân cảnh.",
+      projectId: "so-cai-kho-lanh-vi",
+      language: "vi",
+    });
+
+    const [, , messages] = chatCompletionMock.mock.calls[0]!;
+    const system = messages[0].content as string;
+    const user = messages[1].content as string;
+    expect(system).toContain("công cụ sáng tác phân cảnh");
+    expect(user).toContain("## 分镜表（Bảng phân cảnh）");
+    expect(user).toContain("`Prompt: ...`");
+    await expect(readFile(join(root, result.specPath), "utf-8")).resolves.toContain(
+      "# Sổ cái kho lạnh Đặc tả sáng tác phân cảnh",
+    );
+    await expect(readFile(join(root, result.imagePromptsPath), "utf-8")).resolves.toContain(
+      "cửa kho lạnh, nữ thu ngân mở cửa, hiện thực lạnh, 9:16",
+    );
+  });
+
+  it("extracts image prompts under a Vietnamese-only prompt-heading alias", async () => {
+    chatCompletionMock.mockResolvedValueOnce({
+      content: [
+        "# Sổ cái kho lạnh Phân cảnh",
+        "",
+        "## Bảng phân cảnh",
+        "Prompt: dòng nhãn trong nội dung phân cảnh, không phải tài nguyên ảnh.",
+        "Cú máy 1: Nữ thu ngân mở cánh cửa kho lạnh.",
+        "",
+        "## Prompt hình ảnh",
+        "Prompt: cửa kho lạnh, nữ thu ngân mở cửa, hiện thực lạnh, 9:16",
+      ].join("\n"),
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+    });
+
+    const result = await runStoryboardCreation({
+      projectRoot: root,
+      runtime: makeRuntime(root),
+      title: "Sổ cái kho lạnh",
+      instruction: "Tách đoạn truyện thành phân cảnh.",
+      projectId: "so-cai-kho-lanh-vi-alias",
+      language: "vi",
+    });
+
+    const manifest = JSON.parse(
+      await readFile(join(root, result.assetsManifestPath), "utf-8"),
+    ) as StoryboardAssetsManifest;
+    expect(manifest.assets.map((asset) => asset.prompt)).toEqual([
+      "cửa kho lạnh, nữ thu ngân mở cửa, hiện thực lạnh, 9:16",
+    ]);
+  });
+
+  it("runs interactive-film creation in Vietnamese with bilingual parser headings", async () => {
+    chatCompletionMock.mockResolvedValueOnce({
+      content: [
+        "# Bữa tiệc vương miện Gói phim tương tác",
+        "",
+        "## 剧情树（Cây cốt truyện）",
+        "- N1 Đại sảnh yến tiệc -> công khai hoặc giấu bức thư",
+        "",
+        "## 变量与旗标表（Biến và cờ hiệu）",
+        "| Biến | Ý nghĩa |",
+        "| --- | --- |",
+        "| trust_guard | Niềm tin của lính gác |",
+        "",
+        "## 多结局路径（Các nhánh kết thúc）",
+        "- Kết thúc sự thật: trust_guard + letter_public",
+        "",
+        "## 互动剧本（Kịch bản tương tác）",
+        "### Nút N1",
+        "Lựa chọn của người chơi: công khai hoặc giấu bức thư.",
+        "",
+        "## 分镜与图像提示词（Phân cảnh và prompt hình ảnh）",
+        "Cú máy 1: Sứ giả mở thư dưới ánh nến.",
+        "Prompt: đại sảnh yến tiệc thời trung cổ, sứ giả cầm thư, ánh nến, điện ảnh, 16:9",
+      ].join("\n"),
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+    });
+    chatCompletionMock.mockResolvedValueOnce({
+      content: "Không thể tạo JSON, nhưng có thể tóm tắt cốt truyện.",
+      usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+    });
+
+    const result = await runInteractiveFilmCreation({
+      projectRoot: root,
+      runtime: makeRuntime(root),
+      title: "Bữa tiệc vương miện",
+      instruction: "Tạo phim tương tác có nhiều kết thúc.",
+      requirements: "Giữ bí mật về bức thư cho tới nút quyết định.",
+      projectId: "bua-tiec-vuong-mien-vi",
+      language: "vi",
+    });
+
+    const [, , messages] = chatCompletionMock.mock.calls[0]!;
+    const system = messages[0].content as string;
+    const user = messages[1].content as string;
+    expect(system).toContain("công cụ sáng tác phim tương tác");
+    expect(user).toContain("## 剧情树（Cây cốt truyện）");
+    expect(user).toContain("`Prompt: ...`");
+    expect(user).toContain("Yêu cầu bổ sung:\nGiữ bí mật về bức thư cho tới nút quyết định.");
+    expect(user).not.toContain("补充要求：");
+    const graphPremise = generateStoryGraphMock.mock.calls[0]![2].premise as string;
+    expect(graphPremise).toContain("Yêu cầu sáng tác: Tạo phim tương tác có nhiều kết thúc.");
+    expect(graphPremise).toContain("Yêu cầu bổ sung:\nGiữ bí mật về bức thư cho tới nút quyết định.");
+    expect(graphPremise).toContain("Cây cốt truyện:\n- N1 Đại sảnh yến tiệc");
+    expect(graphPremise).toContain("Biến và cờ hiệu:\n| Biến | Ý nghĩa |");
+    expect(graphPremise).toContain("Kịch bản tương tác:\n### Nút N1");
+    expect(graphPremise).toContain("Prompt hình ảnh:\n1. đại sảnh yến tiệc thời trung cổ");
+    expect(graphPremise).not.toMatch(/[一-鿿]/);
+    await expect(readFile(join(root, result.storyTreePath), "utf-8")).resolves.toContain(
+      "N1 Đại sảnh yến tiệc",
+    );
+    await expect(readFile(join(root, result.flagsPath), "utf-8")).resolves.toContain("trust_guard");
+    await expect(readFile(join(root, result.imagePromptsPath), "utf-8")).resolves.toContain(
+      "đại sảnh yến tiệc thời trung cổ",
+    );
+  });
   it("runs interactive-film creation in English and splits the package by English headings", async () => {
     chatCompletionMock.mockResolvedValueOnce({
       content: [

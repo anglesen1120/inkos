@@ -90,6 +90,7 @@ export class PlannerAgent extends BaseAgent {
       seedMaterials.authorIntent,
       outlineNode,
       input.chapterNumber,
+      input.book.language ?? "zh",
     );
     // Phase hotfix 5: read structured rules through the Phase 5 authoritative
     // loader. It prefers outline/story_frame.md frontmatter, falls back to
@@ -196,40 +197,48 @@ export class PlannerAgent extends BaseAgent {
     readonly chapterContext?: string;
     readonly relevantHooks?: ReadonlyArray<StoredHook>;
     readonly recyclableHooks?: ReadonlyArray<StoredHook>;
-    readonly language?: "zh" | "en";
+    readonly language?: "zh" | "en" | "vi";
     readonly lengthSpec: LengthSpec;
   }): Promise<ChapterMemo> {
+    const language = input.language ?? "zh";
     const [characterMatrix, subplotBoard, emotionalArcs, bookRulesRaw] = await Promise.all([
       readCharacterMatrix(input.storyDir),
       readSubplotBoard(input.storyDir),
       readEmotionalArcs(input.storyDir),
-      readBookRules(input.storyDir),
+      readBookRules(input.storyDir, language),
     ]);
 
-    const language = input.language ?? "zh";
     const noPriorChapter = language === "en"
       ? "(this is the opening chapter — no prior chapter)"
-      : "（本章为起始章，无前章）";
+      : language === "vi"
+        ? "(đây là chương mở đầu — không có chương trước)"
+        : "（本章为起始章，无前章）";
     const noBookRules = language === "en"
       ? "(no book_rules entries)"
-      : "（暂无 book_rules 条目）";
+      : language === "vi"
+        ? "(không có mục book_rules)"
+        : "（暂无 book_rules 条目）";
     const retryFeedbackHeader = language === "en"
       ? "## Error from previous output"
-      : "## 上次输出的错误";
+      : language === "vi"
+        ? "## Lỗi từ đầu ra trước đó"
+        : "## 上次输出的错误";
     const retryFeedbackTrailer = language === "en"
       ? "Fix and re-emit."
-      : "请修正后重新输出。";
+      : language === "vi"
+        ? "Sửa lại và phát hành lại."
+        : "请修正后重新输出。";
 
     const userMessage = buildPlannerUserMessage({
       chapterNumber: input.chapterNumber,
       previousChapterEndingExcerpt: input.previousEndingExcerpt?.trim()
         ? input.previousEndingExcerpt.trim()
         : noPriorChapter,
-      recentSummaries: formatRecentSummaries(input.chapterSummariesRaw, input.chapterNumber, 3),
-      currentArcProse: composeCurrentArcProse(subplotBoard, emotionalArcs, input.chapterNumber),
-      protagonistMatrixRow: extractProtagonistRow(characterMatrix),
-      opponentRows: extractOpponentRows(characterMatrix, 3),
-      collaboratorRows: extractCollaboratorRows(characterMatrix, 3),
+      recentSummaries: formatRecentSummaries(input.chapterSummariesRaw, input.chapterNumber, 3, language),
+      currentArcProse: composeCurrentArcProse(subplotBoard, emotionalArcs, input.chapterNumber, language),
+      protagonistMatrixRow: extractProtagonistRow(characterMatrix, language),
+      opponentRows: extractOpponentRows(characterMatrix, 3, language),
+      collaboratorRows: extractCollaboratorRows(characterMatrix, 3, language),
       relevantThreads: formatRelevantThreads(input.relevantHooks ?? [], subplotBoard, language),
       recyclableHooks: formatRecyclableHooks(
         input.recyclableHooks ?? [],
@@ -244,7 +253,11 @@ export class PlannerAgent extends BaseAgent {
         softMax: input.lengthSpec.softMax,
         hardMin: input.lengthSpec.hardMin,
         hardMax: input.lengthSpec.hardMax,
-        unit: input.lengthSpec.countingMode === "en_words" ? "words" : "字",
+        unit: input.lengthSpec.countingMode === "en_words"
+          ? "words"
+          : input.lengthSpec.countingMode === "vi_words"
+            ? "từ"
+            : "字",
       },
       brief: input.brief ?? "",
       chapterContext: input.chapterContext ?? "",
@@ -298,7 +311,7 @@ export class PlannerAgent extends BaseAgent {
     readonly isGoldenOpening: boolean;
     readonly fallbackGoal: string;
     readonly errorMessage: string;
-    readonly language: "zh" | "en";
+    readonly language: "zh" | "en" | "vi";
     readonly lengthSpec: LengthSpec;
   }): string {
     if (input.language === "en") {
@@ -340,6 +353,48 @@ export class PlannerAgent extends BaseAgent {
         "",
         "## Planner warning",
         `The model failed to produce a valid chapter memo after ${MEMO_RETRY_LIMIT} attempts. Last parser error: ${input.errorMessage}`,
+      ].join("\n");
+    }
+
+    if (input.language === "vi") {
+      return [
+        `# Chapter ${input.chapterNumber} memo`,
+        "",
+        "## Chapter goal",
+        input.fallbackGoal || `Tiếp tục chương ${input.chapterNumber} theo đề cương hiện tại`,
+        "",
+        "## Thread refs",
+        "none",
+        "",
+        "## Scene and length budget",
+        `Lập kế hoạch 2-5 cảnh cụ thể có hành động và hậu quả rõ ràng, tổng độ dài trong khoảng ${input.lengthSpec.hardMin}-${input.lengthSpec.hardMax} từ, nhắm mục tiêu khoảng ${input.lengthSpec.target} từ; phân bổ ngân sách từ động cho từng cảnh, không dùng tóm tắt và độc thoại nội tâm lặp lại để chữa cháy số từ.`,
+        "",
+        "## Current task",
+        `Dùng mục tiêu chương hiện tại và bối cảnh sách có thẩm quyền để tiếp tục chương ${input.chapterNumber}, không tự bịa hướng đi mới, cũng không viết chương thành đoạn chuyển tiếp chung chung.`,
+        "",
+        "## What the reader is waiting for right now",
+        "Giữ kỳ vọng độc giả đang được hình thành từ đề cương và chương trước, ưu tiên đáp ứng áp lực, bằng chứng, quan hệ hoặc thay đổi mục tiêu đã được thiết lập.",
+        "",
+        "## To pay off / to keep buried",
+        "Chỉ hồi đáp những cam kết ngắn hạn đã có bối cảnh hỗ trợ; bí mật lớn hơn, thân phận, kẻ đứng sau hoặc thông tin hồi kết tiếp tục giữ kín trừ khi đề cương yêu cầu rõ.",
+        "",
+        "## What the slow / transitional beats carry",
+        "Nếu cần đoạn chậm hoặc chuyển tiếp, nó phải gánh áp lực, bằng chứng, chuyển động quan hệ, thay đổi mục tiêu hoặc khởi động hành động tiếp theo, không chỉ là tán gẫu và tạo bầu không khí.",
+        "",
+        "## Three-question check on the key choice",
+        "Lựa chọn chính của nhân vật chính phải có lý do, khớp lợi ích hiện tại và nhất quán với lõi tính cách đã thiết lập.",
+        "",
+        "## Required end-of-chapter change",
+        "Cuối chương phải có ít nhất một thay đổi rõ ràng về thông tin, áp lực, quan hệ, mục tiêu hoặc rủi ro, tránh chỉ có tóm tắt cốt truyện mà không tiến triển.",
+        "",
+        "## Hook ledger for this chapter",
+        "advance: đẩy cam kết đang hoạt động tiếp; resolve: chỉ kết những tuyến đã có bằng chứng; defer: giữ các tuyến lớn cho vị trí phù hợp hơn.",
+        "",
+        "## Do not",
+        "Không phản bác sự kiện đã thiết lập, không bỏ qua chỉ dẫn hiện tại của người dùng, không biến fallback memo thành đề cương mới viết lại cả cuốn.",
+        "",
+        "## Planner warning",
+        `Mô hình không tạo được memo chương hợp lệ sau ${MEMO_RETRY_LIMIT} lần. Lỗi phân tích cuối cùng: ${input.errorMessage}`,
       ].join("\n");
     }
 
@@ -396,9 +451,13 @@ export class PlannerAgent extends BaseAgent {
   ): string | undefined {
     if (!outlineNode) return undefined;
     if (volumeOutline === "(文件尚未创建)") return undefined;
-    return this.isChineseLanguage(language)
-      ? `卷纲节点：${outlineNode}`
-      : `Outline node: ${outlineNode}`;
+    if (this.isChineseLanguage(language)) {
+      return `卷纲节点：${outlineNode}`;
+    }
+    if (language?.toLowerCase().startsWith("vi")) {
+      return `Nút đề cương: ${outlineNode}`;
+    }
+    return `Outline node: ${outlineNode}`;
   }
 
   private deriveGoal(
@@ -407,6 +466,7 @@ export class PlannerAgent extends BaseAgent {
     authorIntent: string,
     outlineNode: string | undefined,
     chapterNumber: number,
+    language: "zh" | "en" | "vi",
   ): string {
     const first = this.extractFirstDirective(externalContext);
     if (first) return first;
@@ -418,6 +478,12 @@ export class PlannerAgent extends BaseAgent {
     if (focus) return focus;
     const author = this.extractFirstDirective(authorIntent);
     if (author) return author;
+    if (language === "vi") {
+      return `Tiếp tục chương ${chapterNumber} với trọng tâm tự sự rõ ràng.`;
+    }
+    if (language === "zh") {
+      return `以清晰的叙事重点推进第 ${chapterNumber} 章。`;
+    }
     return `Advance chapter ${chapterNumber} with clear narrative focus.`;
   }
 
@@ -465,6 +531,7 @@ export class PlannerAgent extends BaseAgent {
       .map((line) => line.trim())
       .find((line) =>
         line.length > 0
+        && line !== "(文件尚未创建)"
         && !line.startsWith("#")
         && !line.startsWith("-")
         && !this.isTemplatePlaceholder(line),
@@ -530,17 +597,21 @@ export class PlannerAgent extends BaseAgent {
     return this.extractListItems(focusSection, limit);
   }
 
-  private renderHookBudget(activeCount: number, language: "zh" | "en"): string {
+  private renderHookBudget(activeCount: number, language: "zh" | "en" | "vi"): string {
     const cap = 12;
     if (activeCount < 10) {
       return language === "en"
         ? `### Hook Budget\n- ${activeCount} active hooks (capacity: ${cap})`
-        : `### 伏笔预算\n- 当前 ${activeCount} 条活跃伏笔（容量：${cap}）`;
+        : language === "vi"
+          ? `### Ngân sách hook\n- ${activeCount} hook đang hoạt động (dung lượng: ${cap})`
+          : `### 伏笔预算\n- 当前 ${activeCount} 条活跃伏笔（容量：${cap}）`;
     }
     const remaining = Math.max(0, cap - activeCount);
     return language === "en"
       ? `### Hook Budget\n- ${activeCount} active hooks — approaching capacity (${cap}). Only ${remaining} new hook(s) allowed. Prioritize resolving existing debt over opening new threads.`
-      : `### 伏笔预算\n- 当前 ${activeCount} 条活跃伏笔——接近容量上限（${cap}）。仅剩 ${remaining} 个新坑位。优先回收旧债，不要轻易开新线。`;
+      : language === "vi"
+        ? `### Ngân sách hook\n- ${activeCount} hook đang hoạt động — gần chạm trần (${cap}). Chỉ còn ${remaining} chỗ mới. Ưu tiên thu hồi nợ cũ, đừng mở tuyến mới bừa bãi.`
+        : `### 伏笔预算\n- 当前 ${activeCount} 条活跃伏笔——接近容量上限（${cap}）。仅剩 ${remaining} 个新坑位。优先回收旧债，不要轻易开新线。`;
   }
 
   private extractSection(content: string, headings: ReadonlyArray<string>): string | undefined {
@@ -821,7 +892,7 @@ export class PlannerAgent extends BaseAgent {
   private renderIntentMarkdown(
     intent: ChapterIntent,
     memo: ChapterMemo,
-    language: "zh" | "en",
+    language: "zh" | "en" | "vi",
     pendingHooks: string,
     chapterSummaries: string,
     activeHookCount: number,

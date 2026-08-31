@@ -116,6 +116,42 @@ inkos interact --json --message "continue the current book, but keep the pacing 
 
 InkOS は設定経路を分けています。**Studio は可視化されたサービス設定**を使い、**CLI / daemon / デプロイ環境は env オーバーライド**を使えます。両者は暗黙に上書きしません。
 
+#### ベトナム語 UI と生成言語
+
+UI ロケールとコンテンツ生成言語は別の設定です。TUI の UI には `vi-VN`、執筆・生成には `vi` を指定します。現在のディレクトリを初期化するには：
+
+```bash
+inkos init --lang vi
+```
+
+名前付きのベトナム語プロジェクトを作成する場合：
+
+```bash
+inkos init <project-name> --lang vi
+cd <project-name>
+```
+
+POSIX shell でベトナム語 TUI を起動するには：
+
+```bash
+INKOS_TUI_LOCALE=vi-VN inkos tui
+```
+
+Windows PowerShell では：
+
+```powershell
+$env:INKOS_TUI_LOCALE = "vi-VN"
+inkos tui
+```
+
+Windows コマンド プロンプト（CMD）では：
+
+```bat
+set INKOS_TUI_LOCALE=vi-VN && inkos tui
+```
+
+言語を指定しない場合は、既存のデフォルト動作（通常は `zh`、設定済みの場合はグローバル設定またはジャンルのデフォルト）が使われます。`INKOS_TUI_LOCALE=vi-VN` が変更するのは TUI の表示だけで、生成言語は `vi` になりません。初期化時または対応する作成コマンドで `--lang vi` を別途指定してください。
+
 **方法1：Studio サービス設定（ローカル執筆に推奨）**
 
 ```bash

@@ -89,4 +89,22 @@ describe("CLI progress text", () => {
       'Run "inkos write next demo-book" to continue writing.',
     ]);
   });
+
+  it("formats Vietnamese import progress lines", () => {
+    expect(formatImportDiscoveryLine("vi", 12, "demo-book")).toBe('Tìm thấy 12 chương để nhập vào "demo-book".');
+    expect(formatImportResumeLine("vi", 8)).toBe("Tiếp tục từ chương 8.");
+    expect(formatImportCompletionLines("vi", {
+      importedCount: 12,
+      totalCountLabel: "24000 từ",
+      nextChapter: 13,
+      bookId: "demo-book",
+    })).toEqual([
+      "Nhập hoàn tất:",
+      "  Số chương đã nhập: 12",
+      "  Tổng độ dài: 24000 từ",
+      "  Số chương tiếp theo: 13",
+      '',
+      'Chạy "inkos write next demo-book" để tiếp tục viết.',
+    ]);
+  });
 });

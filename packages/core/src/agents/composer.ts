@@ -55,7 +55,7 @@ export interface ContextBudget {
 export interface CompressibleContextCompileRequest {
   readonly chapterNumber: number;
   readonly goal: string;
-  readonly language: "zh" | "en";
+  readonly language: "zh" | "en" | "vi";
   readonly maxInputTokens: number;
   readonly protectedEntries: ContextPackage["selectedContext"];
   readonly compressibleEntries: ContextPackage["selectedContext"];
@@ -69,7 +69,7 @@ export interface OutlineSectionSelectionRequest {
   readonly chapterNumber: number;
   readonly goal: string;
   readonly outlineNode: string;
-  readonly language: "zh" | "en";
+  readonly language: "zh" | "en" | "vi";
   readonly candidates: ReadonlyArray<{
     readonly source: string;
     readonly heading: string;
@@ -160,7 +160,7 @@ async function applyContextBudgetIfNeeded(params: {
   readonly contextPackage: ContextPackage;
   readonly chapterNumber: number;
   readonly goal: string;
-  readonly language: "zh" | "en";
+  readonly language: "zh" | "en" | "vi";
   readonly contextBudget?: ContextBudget;
   readonly compiler?: CompressibleContextCompiler;
   readonly onContextCompression?: ContextCompressionCallback;
@@ -395,6 +395,7 @@ export class ComposerAgent extends BaseAgent {
       return request.candidates.map((candidate) => candidate.source);
     }
     const isEn = request.language === "en";
+    const isVietnamese = request.language === "vi";
     const candidates = request.candidates.map((candidate, index) => [
       `#${index + 1} ${candidate.source}`,
       `heading: ${candidate.heading}`,
@@ -406,11 +407,17 @@ export class ComposerAgent extends BaseAgent {
           "Select only the outline sections needed for the current chapter. Prefer semantic relevance over keyword overlap.",
           "Return strict JSON only: {\"selectedSources\":[\"...\"]}. Use exact source ids from the candidates. If uncertain, include the safest relevant anchors rather than inventing ids.",
         ].join("\n")
-      : [
-          "你是 InkOS 的语义大纲选段器。",
-          "只选择当前章节真正需要的大纲段落。按语义相关性判断，不要按关键词重合机械选择。",
-          "只返回严格 JSON：{\"selectedSources\":[\"...\"]}。必须使用候选里的精确 source id；不确定时选最安全的相关锚点，不要编造 id。",
-        ].join("\n");
+      : isVietnamese
+        ? [
+            "Bạn là bộ chọn đoạn đề cương theo ngữ nghĩa của InkOS.",
+            "Chỉ chọn những đoạn đề cương thật sự cần cho chương hiện tại. Ưu tiên mức độ liên quan về ngữ nghĩa thay vì máy móc dựa vào từ khóa trùng lặp.",
+            "Chỉ trả về JSON nghiêm ngặt: {\"selectedSources\":[\"...\"]}. Phải dùng chính xác source id trong các ứng viên. Nếu chưa chắc, hãy chọn những điểm neo liên quan an toàn nhất, không tự tạo id.",
+          ].join("\n")
+        : [
+            "你是 InkOS 的语义大纲选段器。",
+            "只选择当前章节真正需要的大纲段落。按语义相关性判断，不要按关键词重合机械选择。",
+            "只返回严格 JSON：{\"selectedSources\":[\"...\"]}。必须使用候选里的精确 source id；不确定时选最安全的相关锚点，不要编造 id。",
+          ].join("\n");
     const user = isEn
       ? [
           `File: ${request.fileName}`,
@@ -421,15 +428,25 @@ export class ComposerAgent extends BaseAgent {
           "Candidates:",
           candidates,
         ].join("\n")
-      : [
-          `文件：${request.fileName}`,
-          `章节：第${request.chapterNumber}章`,
-          `目标：${request.goal}`,
-          `大纲节点：${request.outlineNode}`,
-          "",
-          "候选段落：",
-          candidates,
-        ].join("\n");
+      : isVietnamese
+        ? [
+            `Tệp: ${request.fileName}`,
+            `Chương: ${request.chapterNumber}`,
+            `Mục tiêu: ${request.goal}`,
+            `Nút đề cương: ${request.outlineNode}`,
+            "",
+            "Các đoạn ứng viên:",
+            candidates,
+          ].join("\n")
+        : [
+            `文件：${request.fileName}`,
+            `章节：第${request.chapterNumber}章`,
+            `目标：${request.goal}`,
+            `大纲节点：${request.outlineNode}`,
+            "",
+            "候选段落：",
+            candidates,
+          ].join("\n");
     const response = await this.chat([
       { role: "system", content: system },
       { role: "user", content: user },
@@ -443,6 +460,7 @@ export class ComposerAgent extends BaseAgent {
 
   async selectReferenceSections(request: ReferenceSectionSelectionRequest): Promise<ReadonlyArray<string>> {
     const isEn = request.language === "en";
+    const isVietnamese = request.language === "vi";
     const candidates = request.candidates.map((candidate, index) => [
       `#${index + 1} ${candidate.source}`,
       `title: ${candidate.title}`,
@@ -457,12 +475,19 @@ export class ComposerAgent extends BaseAgent {
           "Select only sections useful for the current chapter task. References are creative guidance, never canon and never stronger than author intent or established facts.",
           "Return strict JSON only: {\"selectedSources\":[\"...\"]}. Use exact candidate source ids. An empty list is valid when no section is relevant.",
         ].join("\n")
-      : [
-          "你是 InkOS 的参考资产语义选段器。",
-          "用户已把这些参考资产绑定到本书，并明确说明每份资料可以借鉴什么。",
-          "只选择当前章节任务真正需要的段落。参考资料只是创作借鉴，不能成为正典，也不能压过作者意图和既成事实。",
-          "只返回严格 JSON：{\"selectedSources\":[\"...\"]}。必须使用候选中的精确 source id；没有相关段落时可以返回空数组。",
-        ].join("\n");
+      : isVietnamese
+        ? [
+            "Bạn là bộ chọn đoạn tài liệu tham khảo theo ngữ nghĩa của InkOS.",
+            "Người dùng đã chủ động gắn các tài liệu tham khảo này vào sách và mô tả cách có thể sử dụng từng tài liệu.",
+            "Chỉ chọn những đoạn hữu ích cho nhiệm vụ chương hiện tại. Tài liệu tham khảo chỉ là định hướng sáng tác, không bao giờ là chính sử và không được lấn át ý đồ tác giả hay các sự kiện đã xác lập.",
+            "Chỉ trả về JSON nghiêm ngặt: {\"selectedSources\":[\"...\"]}. Dùng chính xác source id của ứng viên. Danh sách rỗng hợp lệ nếu không có đoạn nào liên quan.",
+          ].join("\n")
+        : [
+            "你是 InkOS 的参考资产语义选段器。",
+            "用户已把这些参考资产绑定到本书，并明确说明每份资料可以借鉴什么。",
+            "只选择当前章节任务真正需要的段落。参考资料只是创作借鉴，不能成为正典，也不能压过作者意图和既成事实。",
+            "只返回严格 JSON：{\"selectedSources\":[\"...\"]}。必须使用候选中的精确 source id；没有相关段落时可以返回空数组。",
+          ].join("\n");
     const user = isEn
       ? [
           `Chapter: ${request.chapterNumber}`,
@@ -473,15 +498,25 @@ export class ComposerAgent extends BaseAgent {
           "Candidates (headings only; selected sections will be loaded verbatim by the host):",
           candidates,
         ].join("\n")
-      : [
-          `章节：第${request.chapterNumber}章`,
-          `目标：${request.goal}`,
-          `大纲节点：${request.outlineNode}`,
-          `必须保留：${request.mustKeep.join("；") || "（无）"}`,
-          "",
-          "候选段落（这里只给标题；宿主会把选中的段落原文完整载入）：",
-          candidates,
-        ].join("\n");
+      : isVietnamese
+        ? [
+            `Chương: ${request.chapterNumber}`,
+            `Mục tiêu: ${request.goal}`,
+            `Nút đề cương: ${request.outlineNode}`,
+            `Bắt buộc giữ: ${request.mustKeep.join("; ") || "(không có)"}`,
+            "",
+            "Các đoạn ứng viên (chỉ có tiêu đề; máy chủ sẽ nạp nguyên văn các đoạn được chọn):",
+            candidates,
+          ].join("\n")
+        : [
+            `章节：第${request.chapterNumber}章`,
+            `目标：${request.goal}`,
+            `大纲节点：${request.outlineNode}`,
+            `必须保留：${request.mustKeep.join("；") || "（无）"}`,
+            "",
+            "候选段落（这里只给标题；宿主会把选中的段落原文完整载入）：",
+            candidates,
+          ].join("\n");
     const response = await this.chat([
       { role: "system", content: system },
       { role: "user", content: user },
@@ -495,6 +530,7 @@ export class ComposerAgent extends BaseAgent {
 
   async compileCompressibleContext(request: CompressibleContextCompileRequest): Promise<string> {
     const isEn = request.language === "en";
+    const isVietnamese = request.language === "vi";
     const protectedBlock = renderContextEntries(request.protectedEntries);
     const compressibleBlock = renderContextEntries(request.compressibleEntries);
     const system = isEn
@@ -503,11 +539,17 @@ export class ComposerAgent extends BaseAgent {
           "Only compile the COMPRESSIBLE CONTEXT. The PROTECTED CONTEXT is binding reference material and must not be rewritten, summarized as a substitute, or weakened.",
           "Output concise Markdown with source pointers. Preserve names, unresolved promises, evidence, timing, and constraints that may affect the next chapter. Drop low-relevance noise.",
         ].join("\n")
-      : [
-          "你是 InkOS 的语义上下文编译器。",
-          "只能编译【可压缩上下文】。【受保护上下文】是绑定参照，不得改写、不得替代总结、不得削弱。",
-          "输出简洁 Markdown，保留来源指针。保留会影响下一章的人名、未兑现承诺、证据、时间点和约束，丢弃低相关噪声。",
-        ].join("\n");
+      : isVietnamese
+        ? [
+            "Bạn là trình biên soạn ngữ cảnh theo ngữ nghĩa của InkOS.",
+            "Chỉ biên soạn NGỮ CẢNH CẦN NÉN. NGỮ CẢNH ĐƯỢC BẢO VỆ là tài liệu ràng buộc; không được viết lại, dùng bản tóm tắt để thay thế hoặc làm suy yếu nó.",
+            "Xuất Markdown ngắn gọn có chỉ dẫn nguồn. Giữ tên riêng, các lời hứa chưa được thực hiện, chứng cứ, mốc thời gian và ràng buộc có thể ảnh hưởng đến chương kế tiếp. Loại bỏ chi tiết nhiễu ít liên quan.",
+          ].join("\n")
+        : [
+            "你是 InkOS 的语义上下文编译器。",
+            "只能编译【可压缩上下文】。【受保护上下文】是绑定参照，不得改写、不得替代总结、不得削弱。",
+            "输出简洁 Markdown，保留来源指针。保留会影响下一章的人名、未兑现承诺、证据、时间点和约束，丢弃低相关噪声。",
+          ].join("\n");
     const user = isEn
       ? [
           `Chapter: ${request.chapterNumber}`,
@@ -520,17 +562,29 @@ export class ComposerAgent extends BaseAgent {
           "## Compressible Context (compile this)",
           compressibleBlock || "(none)",
         ].join("\n")
-      : [
-          `章节：第${request.chapterNumber}章`,
-          `目标：${request.goal}`,
-          `压缩后目标预算：不超过 ${request.maxInputTokens} 估算输入 tokens`,
-          "",
-          "## 受保护上下文（只作为参照，不要编译它）",
-          protectedBlock || "（无）",
-          "",
-          "## 可压缩上下文（只编译这一部分）",
-          compressibleBlock || "（无）",
-        ].join("\n");
+      : isVietnamese
+        ? [
+            `Chương: ${request.chapterNumber}`,
+            `Mục tiêu: ${request.goal}`,
+            `Ngân sách mục tiêu sau khi biên soạn: không quá ${request.maxInputTokens} token đầu vào ước tính`,
+            "",
+            "## Ngữ cảnh được bảo vệ (chỉ để tham chiếu, không biên soạn)",
+            protectedBlock || "(không có)",
+            "",
+            "## Ngữ cảnh cần nén (chỉ biên soạn phần này)",
+            compressibleBlock || "(không có)",
+          ].join("\n")
+        : [
+            `章节：第${request.chapterNumber}章`,
+            `目标：${request.goal}`,
+            `压缩后目标预算：不超过 ${request.maxInputTokens} 估算输入 tokens`,
+            "",
+            "## 受保护上下文（只作为参照，不要编译它）",
+            protectedBlock || "（无）",
+            "",
+            "## 可压缩上下文（只编译这一部分）",
+            compressibleBlock || "（无）",
+          ].join("\n");
 
     const response = await this.chat([
       { role: "system", content: system },
@@ -572,7 +626,7 @@ export function contextBudgetFromClient(client: LLMClient): ContextBudget | unde
 async function collectSelectedContext(
   storyDir: string,
   plan: PlanChapterOutput,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
   outlineSectionSelector?: OutlineSectionSelector,
   memorySemanticSelector?: MemorySemanticSelector,
 ): Promise<{
@@ -822,7 +876,7 @@ async function buildHookDebtEntries(
       readonly payoffTiming?: string;
       readonly notes: string;
     }>,
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
 ): Promise<ContextPackage["selectedContext"]> {
     const targetHookIds = [...new Set(plan.memo.threadRefs)];
     if (targetHookIds.length === 0) {
@@ -841,8 +895,12 @@ async function buildHookDebtEntries(
 
       const seedSummary = findHookSummary(summaries, hook.hookId, hook.startChapter, "seed");
       const latestSummary = findHookSummary(summaries, hook.hookId, hook.lastAdvancedChapter, "latest");
-      const role = language === "en" ? "memo-referenced debt" : "备忘引用旧债";
-      const promise = hook.expectedPayoff || (language === "en" ? "(unspecified)" : "（未写明）");
+      const role = language === "en"
+        ? "memo-referenced debt"
+        : language === "vi"
+          ? "nợ truyện được memo nhắc đến"
+          : "备忘引用旧债";
+      const promise = hook.expectedPayoff || (language === "en" ? "(unspecified)" : language === "vi" ? "(chưa nêu rõ)" : "（未写明）");
       const seedBeat = seedSummary
         ? renderHookDebtBeat(seedSummary)
         : (hook.notes || promise);
@@ -855,7 +913,9 @@ async function buildHookDebtEntries(
         source: `runtime/hook_debt#${hook.hookId}`,
         reason: language === "en"
           ? "Narrative debt brief with original seed text for this hook agenda target."
-          : "含原始种子文本的叙事债务简报。",
+          : language === "vi"
+            ? "Tóm lược nợ tự sự kèm văn bản gieo mầm ban đầu cho hook mục tiêu trong lịch hook."
+            : "含原始种子文本的叙事债务简报。",
         excerpt: language === "en"
           ? [
               `${hook.hookId} (${hook.type}, ${role}, open ${age} chapters)`,
@@ -863,12 +923,19 @@ async function buildHookDebtEntries(
               `original seed (ch${hook.startChapter}): ${seedBeat}`,
               latestBeat ? `latest turn (ch${hook.lastAdvancedChapter}): ${latestBeat}` : undefined,
             ].filter(Boolean).join(" | ")
-          : [
-              `${hook.hookId}（${hook.type}，${role}，已开${age}章）`,
-              `读者承诺：${promise}`,
-              `种于第${hook.startChapter}章：${seedBeat}`,
-              latestBeat ? `推进于第${hook.lastAdvancedChapter}章：${latestBeat}` : undefined,
-            ].filter(Boolean).join(" | "),
+          : language === "vi"
+            ? [
+                `${hook.hookId} (${hook.type}, ${role}, đang mở ${age} chương)`,
+                `lời hứa với độc giả: ${promise}`,
+                `gieo ở ch${hook.startChapter}: ${seedBeat}`,
+                latestBeat ? `diễn biến gần nhất ở ch${hook.lastAdvancedChapter}: ${latestBeat}` : undefined,
+              ].filter(Boolean).join(" | ")
+            : [
+                `${hook.hookId}（${hook.type}，${role}，已开${age}章）`,
+                `读者承诺：${promise}`,
+                `种于第${hook.startChapter}章：${seedBeat}`,
+                latestBeat ? `推进于第${hook.lastAdvancedChapter}章：${latestBeat}` : undefined,
+              ].filter(Boolean).join(" | "),
       }];
     });
 }
@@ -911,7 +978,7 @@ async function maybeOutlineSectionSources(
   reason: string,
   plan: PlanChapterOutput,
   kind: "story-frame" | "volume-map",
-  language: "zh" | "en",
+  language: "zh" | "en" | "vi",
   outlineSectionSelector?: OutlineSectionSelector,
 ): Promise<ContextPackage["selectedContext"]> {
     const path = join(storyDir, fileName);
@@ -950,7 +1017,7 @@ async function selectOutlineSectionEntries(params: {
   readonly reason: string;
   readonly plan: PlanChapterOutput;
   readonly kind: "story-frame" | "volume-map";
-  readonly language: "zh" | "en";
+  readonly language: "zh" | "en" | "vi";
   readonly outlineSectionSelector?: OutlineSectionSelector;
 }): Promise<ContextPackage["selectedContext"]> {
     const sections = splitMarkdownSections(params.content);

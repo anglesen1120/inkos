@@ -44,7 +44,10 @@ export async function readBrief(storyDir: string): Promise<string> {
  * Returns "" when no structured rules are defined — the planner template
  * provides its own placeholder for that case.
  */
-export async function readBookRules(storyDir: string): Promise<string> {
+export async function readBookRules(
+  storyDir: string,
+  language: "zh" | "en" | "vi" = "zh",
+): Promise<string> {
   const bookDir = dirname(storyDir);
   const parsed = await readStructuredBookRules(bookDir);
   if (!parsed) return "";
@@ -54,25 +57,36 @@ export async function readBookRules(storyDir: string): Promise<string> {
 
   if (rules.protagonist) {
     const proto = rules.protagonist;
-    const personality = proto.personalityLock.join("、");
-    const constraints = proto.behavioralConstraints.join("、");
-    lines.push(`- 主角 ${proto.name}${personality ? ` / 人设锁：${personality}` : ""}${constraints ? ` / 行为约束：${constraints}` : ""}`);
+    const separator = language === "vi" ? ", " : "、";
+    const personality = proto.personalityLock.join(separator);
+    const constraints = proto.behavioralConstraints.join(separator);
+    const protagonistLabel = language === "vi" ? "Nhân vật chính" : "主角";
+    const personalityLabel = language === "vi" ? "khóa tính cách" : "人设锁";
+    const constraintsLabel = language === "vi" ? "ràng buộc hành vi" : "行为约束";
+    lines.push(language === "vi"
+      ? `- ${protagonistLabel} ${proto.name}${personality ? ` / ${personalityLabel}: ${personality}` : ""}${constraints ? ` / ${constraintsLabel}: ${constraints}` : ""}`
+      : `- 主角 ${proto.name}${personality ? ` / 人设锁：${personality}` : ""}${constraints ? ` / 行为约束：${constraints}` : ""}`);
   }
 
   if (rules.prohibitions.length > 0) {
-    lines.push("- 本书禁忌：");
+    lines.push(language === "vi" ? "- Điều cấm của sách:" : "- 本书禁忌：");
     for (const p of rules.prohibitions) {
       lines.push(`  - ${p}`);
     }
   }
 
   if (rules.genreLock) {
-    const forbidden = rules.genreLock.forbidden.join("、");
-    lines.push(`- 题材锁：${rules.genreLock.primary}${forbidden ? ` / 禁止混入：${forbidden}` : ""}`);
+    const forbidden = rules.genreLock.forbidden.join(language === "vi" ? ", " : "、");
+    const genreLabel = language === "vi" ? "Khóa thể loại" : "题材锁";
+    const forbiddenLabel = language === "vi" ? "không pha trộn" : "禁止混入";
+    lines.push(language === "vi"
+      ? `- ${genreLabel}: ${rules.genreLock.primary}${forbidden ? ` / ${forbiddenLabel}: ${forbidden}` : ""}`
+      : `- 题材锁：${rules.genreLock.primary}${forbidden ? ` / 禁止混入：${forbidden}` : ""}`);
   }
 
   if (rules.fanficMode) {
-    lines.push(`- 同人模式：${rules.fanficMode}`);
+    const fanficLabel = language === "vi" ? "Chế độ đồng nhân" : "同人模式";
+    lines.push(language === "vi" ? `- ${fanficLabel}: ${rules.fanficMode}` : `- 同人模式：${rules.fanficMode}`);
   }
 
   const trimmedBody = body.trim();
@@ -94,6 +108,7 @@ export function formatRecentSummaries(
   chapterSummariesRaw: string,
   chapterNumber: number,
   limit: number,
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
   const rows = parseMarkdownTableRows(chapterSummariesRaw)
     .filter((row) => /^\d+$/.test(row[0] ?? ""))
@@ -102,10 +117,12 @@ export function formatRecentSummaries(
 
   const recent = rows.slice(-limit);
   if (recent.length === 0) {
-    return "（暂无前章摘要）";
+    return language === "vi" ? "(chưa có tóm tắt chương trước)" : "（暂无前章摘要）";
   }
 
-  const header = "| 章节 | 标题 | 出场人物 | 关键事件 | 状态变化 | 伏笔动态 | 情绪基调 | 章节类型 |";
+  const header = language === "vi"
+    ? "| Chương | Tiêu đề | Nhân vật xuất hiện | Sự kiện chính | Thay đổi trạng thái | Diễn biến phục bút | Sắc thái cảm xúc | Loại chương |"
+    : "| 章节 | 标题 | 出场人物 | 关键事件 | 状态变化 | 伏笔动态 | 情绪基调 | 章节类型 |";
   const divider = "| --- | --- | --- | --- | --- | --- | --- | --- |";
   const body = recent.map((row) => `| ${row.join(" | ")} |`).join("\n");
   return [header, divider, body].join("\n");
@@ -120,19 +137,24 @@ export function composeCurrentArcProse(
   subplotBoardRaw: string,
   emotionalArcsRaw: string,
   chapterNumber: number,
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
   const activeSubplots = extractActiveSubplotLines(subplotBoardRaw);
   const recentArcs = extractRecentEmotionalArcLines(emotionalArcsRaw, chapterNumber, 3);
+  const activeSubplotsLabel = language === "vi" ? "Tuyến phụ đang hoạt động" : "活跃支线";
+  const recentArcsLabel = language === "vi" ? "Cung cảm xúc gần đây" : "近期情感线";
 
   const parts: string[] = [];
   if (activeSubplots.length > 0) {
-    parts.push("活跃支线：\n" + activeSubplots.map((line) => `- ${line}`).join("\n"));
+    parts.push(`${activeSubplotsLabel}:\n` + activeSubplots.map((line) => `- ${line}`).join("\n"));
   }
   if (recentArcs.length > 0) {
-    parts.push("近期情感线：\n" + recentArcs.map((line) => `- ${line}`).join("\n"));
+    parts.push(`${recentArcsLabel}:\n` + recentArcs.map((line) => `- ${line}`).join("\n"));
   }
   if (parts.length === 0) {
-    return "（暂无 arc 数据——可能是新书起始阶段）";
+    return language === "vi"
+      ? "(không có dữ liệu arc — có thể đây là giai đoạn mở đầu của sách mới)"
+      : "（暂无 arc 数据——可能是新书起始阶段）";
   }
   return parts.join("\n\n");
 }
@@ -191,7 +213,10 @@ function isLikelyHeaderRow(row: ReadonlyArray<string>): boolean {
  * explicit match is found — that row is almost always the protagonist by
  * convention.
  */
-export function extractProtagonistRow(characterMatrixRaw: string): string {
+export function extractProtagonistRow(
+  characterMatrixRaw: string,
+  language: "zh" | "en" | "vi" = "zh",
+): string {
   const rows = parseMarkdownTableRows(characterMatrixRaw);
   const protagonist = rows.find((row) =>
     row.some((cell) => /^(主角本人|主角|protagonist)$/i.test(cell.trim())),
@@ -203,18 +228,34 @@ export function extractProtagonistRow(characterMatrixRaw: string): string {
   if (firstDataRow) {
     return `| ${firstDataRow.join(" | ")} |`;
   }
-  return "（未找到主角行——请检查 character_matrix.md）";
+  return language === "vi"
+    ? "(không tìm thấy hàng nhân vật chính — hãy kiểm tra character_matrix.md)"
+    : "（未找到主角行——请检查 character_matrix.md）";
 }
 
 const OPPONENT_PATTERNS = /敌对|对手|阻力|opponent|antagonist|foe/i;
 const COLLABORATOR_PATTERNS = /协力|盟友|临时助力|ally|collaborator|mentor/i;
 
-export function extractOpponentRows(characterMatrixRaw: string, limit: number): string {
-  return extractRowsByRelation(characterMatrixRaw, OPPONENT_PATTERNS, limit, "（暂无明确对手登场）");
+export function extractOpponentRows(
+  characterMatrixRaw: string,
+  limit: number,
+  language: "zh" | "en" | "vi" = "zh",
+): string {
+  const emptyText = language === "vi"
+    ? "(chưa có đối thủ rõ ràng xuất hiện)"
+    : "（暂无明确对手登场）";
+  return extractRowsByRelation(characterMatrixRaw, OPPONENT_PATTERNS, limit, emptyText);
 }
 
-export function extractCollaboratorRows(characterMatrixRaw: string, limit: number): string {
-  return extractRowsByRelation(characterMatrixRaw, COLLABORATOR_PATTERNS, limit, "（暂无明确协作者登场）");
+export function extractCollaboratorRows(
+  characterMatrixRaw: string,
+  limit: number,
+  language: "zh" | "en" | "vi" = "zh",
+): string {
+  const emptyText = language === "vi"
+    ? "(chưa có cộng tác viên rõ ràng xuất hiện)"
+    : "（暂无明确协作者登场）";
+  return extractRowsByRelation(characterMatrixRaw, COLLABORATOR_PATTERNS, limit, emptyText);
 }
 
 function extractRowsByRelation(
@@ -236,7 +277,7 @@ function extractRowsByRelation(
 export function formatRelevantThreads(
   hooks: ReadonlyArray<StoredHook>,
   subplotBoardRaw: string,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
   const hookRows = hooks.map((hook) => `- ${hook.hookId}: ${[
     hook.type,
@@ -248,7 +289,7 @@ export function formatRelevantThreads(
   const subplotRows = extractActiveSubplotLines(subplotBoardRaw).map((line) => `- ${line}`);
   const lines = [...hookRows, ...subplotRows];
   if (lines.length === 0) {
-    return language === "en" ? "(no relevant threads)" : "（暂无相关线索）";
+    return language === "en" ? "(no relevant threads)" : language === "vi" ? "(không có tuyến truyện liên quan)" : "（暂无相关线索）";
   }
   return lines.join("\n");
 }
@@ -264,12 +305,14 @@ export function formatRelevantThreads(
 export function formatRecyclableHooks(
   hooks: ReadonlyArray<StoredHook>,
   chapterNumber: number,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
   if (hooks.length === 0) {
     return language === "en"
       ? "(no stale hooks — the ledger is clean)"
-      : "（暂无陈旧 hook——账本干净）";
+      : language === "vi"
+        ? "(không có hook cũ — sổ theo dõi đã sạch)"
+        : "（暂无陈旧 hook——账本干净）";
   }
 
   const topSlice = hooks.slice(0, 6);
@@ -277,14 +320,18 @@ export function formatRecyclableHooks(
     const lastTouch = Math.max(hook.startChapter, hook.lastAdvancedChapter);
     const silence = lastTouch <= 0 ? chapterNumber : Math.max(0, chapterNumber - lastTouch);
     const payoff = hook.expectedPayoff?.trim() || hook.notes?.trim() || "";
-    const core = hook.coreHook === true ? (language === "en" ? " [core]" : " [核心]") : "";
+    const core = hook.coreHook === true ? (language === "en" ? " [core]" : language === "vi" ? " [cốt lõi]" : " [核心]") : "";
     return language === "en"
       ? `- ${hook.hookId} "${payoff}" — status=${hook.status}, silent ${silence} ch${core}`
-      : `- ${hook.hookId} "${payoff}" — 状态=${hook.status}，已沉默 ${silence} 章${core}`;
+      : language === "vi"
+        ? `- ${hook.hookId} "${payoff}" — trạng thái=${hook.status}, im lặng ${silence} chương${core}`
+        : `- ${hook.hookId} "${payoff}" — 状态=${hook.status}，已沉默 ${silence} 章${core}`;
   });
 
   const header = language === "en"
     ? "The planner MUST place each of these under advance / resolve / defer in the hook ledger (deferring requires an explicit reason):"
-    : "规划时必须把以下每个 hook 放入 advance / resolve / defer（若 defer，必须写出理由）：";
+    : language === "vi"
+      ? "Planner PHẢI đặt từng hook dưới advance / resolve / defer trong sổ hook (defer phải nêu rõ lý do):"
+      : "规划时必须把以下每个 hook 放入 advance / resolve / defer（若 defer，必须写出理由）：";
   return [header, ...lines].join("\n");
 }

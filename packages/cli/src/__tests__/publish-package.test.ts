@@ -289,6 +289,18 @@ describe.sequential("publish packaging", () => {
       expect(archiveListing).toContain("package/skills/inkos-long-writing/SKILL.md");
       expect(archiveListing).toContain("package/skills/inkos-story-review/references/review-matrix.md");
       expect(archiveListing).toContain("package/skills/inkos-story-cover/SKILL.md");
+      expect(archiveListing).toContain(
+        "package/skills/inkos-long-writing/references/scene-dialogue-and-length-budget.md",
+      );
+      expect(archiveListing).toContain(
+        "package/skills/inkos-short-writing/references/production-checklist.md",
+      );
+      expect(archiveListing).toContain(
+        "package/skills/inkos-play-world/references/world-turn-continuity.md",
+      );
+      expect(archiveListing).toContain(
+        "package/skills/inkos-translation/references/long-form-consistency.md",
+      );
     } finally {
       await rm(packDir, { recursive: true, force: true });
     }

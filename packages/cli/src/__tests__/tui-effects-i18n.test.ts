@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { stripAnsi } from "../tui/ansi.js";
-import { buildStyledHelpSections, formatStyledStatusLines, intentToBadge } from "../tui/effects.js";
+import { buildStyledHelpSections, formatStyledStatusLines, intentToBadge, localizeThemeLabel } from "../tui/effects.js";
 
 describe("tui effects i18n", () => {
   it("builds localized help sections", () => {
@@ -10,10 +10,14 @@ describe("tui effects i18n", () => {
     expect(zhSections[0]?.title).toBe("写作");
     expect(zhSections[1]?.commands[0]?.[1]).toContain("列出");
     expect(enSections[0]?.title).toBe("Writing");
+    const viSections = buildStyledHelpSections("vi-VN");
+    expect(viSections[0]?.title).toBe("Viết");
+    expect(viSections[1]?.commands[0]?.[1]).toContain("liệt kê");
   });
 
   it("localizes intent badges and status labels", () => {
     expect(stripAnsi(intentToBadge("write_next", "zh-CN"))).toContain("写作");
+    expect(stripAnsi(intentToBadge("write_next", "vi-VN"))).toContain("VIẾT");
 
     const zhLines = formatStyledStatusLines("zh-CN", {
       mode: "semi",
@@ -25,5 +29,22 @@ describe("tui effects i18n", () => {
     expect(zhLines.join("\n")).toContain("模式");
     expect(zhLines.join("\n")).toContain("半自动");
     expect(zhLines.join("\n")).toContain("作品");
+
+    const viLines = formatStyledStatusLines("vi-VN", {
+      mode: "semi",
+      bookId: "ben-suong",
+      status: "writing",
+      events: [{ kind: "task.started", detail: "Preparing chapter 3.", status: "running" }],
+    });
+
+    expect(viLines.join("\n")).toContain("Chế độ");
+    expect(viLines.join("\n")).toContain("bán tự động");
+    expect(viLines.join("\n")).toContain("Tác phẩm");
+    expect(viLines.join("\n")).not.toContain("作品");
+  });
+
+  it("localizes spinner theme labels in Vietnamese", () => {
+    expect(localizeThemeLabel("writing", "vi-VN")).toBe("đang viết");
+    expect(localizeThemeLabel("auditing", "vi-VN")).toBe("đang kiểm duyệt");
   });
 });

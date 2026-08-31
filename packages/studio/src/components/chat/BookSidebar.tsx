@@ -1,3 +1,4 @@
+import { tr } from "../../lib/app-language";
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Theme } from "../../hooks/use-theme";
 import type { TFunction } from "../../hooks/use-i18n";
@@ -58,7 +59,7 @@ function renderTruthBody(
     const { isEmpty, body: stateBody } = presentCurrentState(content);
     return isEmpty ? (
       <p className="text-[14px] leading-6 text-muted-foreground/60 italic">
-        还没有运行状态。开始写作后，每写完一章这里会自动记录最新的故事进展。
+        {tr("还没有运行状态。开始写作后，每写完一章这里会自动记录最新的故事进展。", "No run state yet. The latest story progress is recorded here after each chapter.", "Chưa có trạng thái chạy. Tiến triển câu chuyện mới nhất sẽ được ghi lại sau mỗi chương.")}
       </p>
     ) : (
       <Streamdown plugins={streamdownPlugins} mode="static">{stateBody}</Streamdown>
@@ -67,7 +68,7 @@ function renderTruthBody(
   if (file === "emotional_arcs.md" && !hasTableRows(content)) {
     return (
       <p className="text-[14px] leading-6 text-muted-foreground/60 italic">
-        还没有情感弧线记录。开始写作后，这里会记录角色在各章的情绪变化。
+        {tr("还没有情感弧线记录。开始写作后，这里会记录角色在各章的情绪变化。", "No emotional arc records yet. Character changes across chapters will appear here after writing starts.", "Chưa có dữ liệu cung cảm xúc. Thay đổi cảm xúc của nhân vật qua từng chương sẽ xuất hiện sau khi bắt đầu viết.")}
       </p>
     );
   }
@@ -81,7 +82,7 @@ function renderTruthBody(
   );
 }
 
-function ArtifactView({ bookId }: { readonly bookId: string }) {
+function ArtifactView({ bookId, t }: { readonly bookId: string; readonly t: TFunction }) {
   const artifactFile = useChatStore((s) => s.artifactFile);
   const artifactChapter = useChatStore((s) => s.artifactChapter);
   const closeArtifact = useChatStore((s) => s.closeArtifact);
@@ -95,7 +96,7 @@ function ArtifactView({ bookId }: { readonly bookId: string }) {
 
   const isChapter = artifactChapter !== null;
   const label = isChapter
-    ? `第 ${artifactChapter} 章`
+    ? t("chapter.label").replace("{n}", String(artifactChapter))
     : artifactFile ? artifactLabel(artifactFile) : "";
 
   useEffect(() => {
@@ -194,7 +195,7 @@ function ArtifactView({ bookId }: { readonly bookId: string }) {
             <Loader2 size={16} className="text-muted-foreground animate-spin" />
           </div>
         ) : content === null ? (
-          <p className="text-[14px] leading-6 text-muted-foreground/50 italic px-4 py-3">文件不存在</p>
+          <p className="text-[14px] leading-6 text-muted-foreground/50 italic px-4 py-3">{t("truth.notFound")}</p>
         ) : editing ? (
           <textarea
             value={editContent}
@@ -235,9 +236,9 @@ function PanelView({ bookId, theme: _theme, t, sse }: BookSidebarProps) {
   }, [sse.messages]);
 
   const OP_LABELS: Record<string, string> = {
-    write: isZh ? "正在写作中..." : "Writing...",
-    audit: isZh ? "正在审计中..." : "Auditing...",
-    revise: isZh ? "正在修订中..." : "Revising...",
+    write: t("book.drafting"),
+    audit: `${t("book.audit")}...`,
+    revise: `${t("book.rewrite")}...`,
   };
 
   return (
@@ -302,7 +303,7 @@ export function BookSidebar({ bookId, theme, t, sse }: BookSidebarProps) {
         className="absolute left-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors z-10"
       />
       {sidebarView === "artifact" ? (
-        <ArtifactView bookId={bookId} />
+        <ArtifactView bookId={bookId} t={t} />
       ) : (
         <PanelView bookId={bookId} theme={theme} t={t} sse={sse} />
       )}
@@ -331,13 +332,13 @@ export function BookSidebarToggle({ bookId, theme, t, sse }: BookSidebarProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-3 py-2 border-b border-border/20">
-              <span className="text-[15px] leading-6 font-medium text-muted-foreground">书籍信息</span>
+              <span className="text-[15px] leading-6 font-medium text-muted-foreground">{t("book.settings")}</span>
               <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <PanelRightClose size={14} />
               </button>
             </div>
             {sidebarView === "artifact" ? (
-              <ArtifactView bookId={bookId} />
+              <ArtifactView bookId={bookId} t={t} />
             ) : (
               <PanelView bookId={bookId} theme={theme} t={t} sse={sse} />
             )}

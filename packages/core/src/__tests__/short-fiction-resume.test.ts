@@ -146,6 +146,38 @@ describe("short fiction resume + failure marker (C2)", () => {
     ]));
   });
 
+  it("uses Vietnamese warning prose, word bounds, defaults, and package headings", async () => {
+    const firstOutline = { storyTitle: "Thang máy tầng mười ba", rawContent: "# Thang máy tầng mười ba\n\n## Dàn ý 12 chương" };
+    const complete = parseShortFictionBatchDraft(DRAFT_MD, { expectedChapters: CH });
+    const createOutline = vi.spyOn(ShortFictionOutlineAgent.prototype, "createOutline").mockResolvedValue(firstOutline);
+    vi.spyOn(ShortFictionOutlineReviewerAgent.prototype, "reviewOutline").mockResolvedValue("Cần tăng nhịp phản công.");
+    vi.spyOn(ShortFictionOutlineReviserAgent.prototype, "reviseOutline").mockRejectedValue(new Error("outline retry failed"));
+    vi.spyOn(ShortFictionWriterAgent.prototype, "writeDraft").mockResolvedValue(complete);
+    vi.spyOn(ShortFictionDraftReviewerAgent.prototype, "reviewDraft").mockResolvedValue("Cần làm rõ cao trào.");
+    vi.spyOn(ShortFictionDraftReviserAgent.prototype, "reviseDraft").mockRejectedValue(new Error("draft retry failed"));
+    vi.spyOn(ShortFictionPackagingAgent.prototype, "generatePackage").mockResolvedValue({
+      title: "Thang máy tầng mười ba", intro: "Một tầng không tồn tại mở ra mỗi đêm.", sellingPoints: ["Bí ẩn", "Phản công"], coverPrompt: "Cửa thang máy mở giữa hành lang tối.", rawContent: "",
+    });
+
+    const result = await runShortFictionProduction({
+      projectRoot: root, direction: "truyện ngắn bí ẩn", chapterCount: CH,
+      language: "vi", cover: false, runtimes: runtimes(root),
+    });
+    expect(createOutline).toHaveBeenCalledWith(expect.objectContaining({ charsPerChapter: 650, language: "vi" }));
+    await expect(readFile(join(root, "shorts", result.storyId, "reviews", "outline-v002-warning.md"), "utf-8"))
+      .resolves.toContain("Bản sửa dàn ý chưa được áp dụng");
+    await expect(readFile(join(root, "shorts", result.storyId, "reviews", "draft-v002-warning.md"), "utf-8"))
+      .resolves.toContain("Bản chỉnh sửa thứ hai chưa được áp dụng");
+    const packageMarkdown = await readFile(join(root, result.salesPackagePath), "utf-8");
+    expect(packageMarkdown).toContain("## Tóm tắt");
+    expect(packageMarkdown).toContain("## Điểm nổi bật");
+    expect(packageMarkdown).toContain("## Gợi ý bìa");
+    await expect(runShortFictionProduction({
+      projectRoot: root, direction: "truyện ngắn bí ẩn", storyId: "too-short",
+      chapterCount: CH, charsPerChapter: 599, language: "vi", cover: false, runtimes: runtimes(root),
+    })).rejects.toThrow(/600 and 800/);
+  });
+
   it("uses the confirmed title as project identity instead of a malformed generated heading", async () => {
     const malformedOutline = {
       storyTitle: "one-line-platform-title",

@@ -221,6 +221,145 @@ defer:
 - Do NOT produce prose or dialogue fragments
 - If the volume outline conflicts with the previous chapter summary, trust the summary (those events actually happened)`;
 
+export const PLANNER_MEMO_SYSTEM_PROMPT_VI = `Bạn là tổng biên tập sáng tác của tiểu thuyết này. Nhiệm vụ của bạn là tạo chapter_memo cho chương tiếp theo. Bạn KHÔNG viết văn xuôi — bạn lập kế hoạch chương này phải hoàn thành gì, hồi đáp gì và không được làm gì. Writer hạ nguồn sẽ mở rộng memo thành văn xuôi. Mọi nội dung memo phải viết bằng tiếng Việt tự nhiên (văn xuôi, thoại, xưng hô theo quan hệ/lứa tuổi/địa vị/bối cảnh, dấu câu và dấu phụ đầy đủ).
+
+Nguyên tắc làm việc (nội hóa, không trích số thứ tự trong memo):
+
+1. Mỗi 3-5 chương phải có một chu kỳ mục tiêu nhỏ: đạt mục tiêu nhỏ hoặc nâng cấp hồi hộp, tuyến chính tiếp tục tiến.
+2. Chủ động tạo kỳ vọng độc giả: tạo khoảng trống "chưa hồi đáp nhưng sắp tới"; khi hồi đáp phải vượt kỳ vọng.
+3. Mọi thứ đều là mồi: cảnh chậm/chuyển tiếp vẫn phải là foreshadow hoặc hook tương lai.
+4. Không sập nhân vật: hành vi đến từ quá khứ + lợi ích hiện tại + lõi tính cách.
+5. 1 tuyến chính + 1 tuyến phụ: tuyến phụ phải phục vụ tuyến chính; không chạy 3+ tuyến phụ cùng lúc.
+6. Điểm thỏa mãn dày: mỗi 3-5 chương cần một payoff nhỏ.
+7. Trước cao trào 3-5 chương phải gieo manh mối rõ.
+8. Sau cao trào 1-2 chương phải cho thấy thay đổi cụ thể.
+9. Nhân vật sống: nhãn lõi + chi tiết tương phản.
+10. Cụ thể hóa giác quan: cảnh phải có chi tiết cảm giác nhìn thấy được.
+11. Mỗi chương kết bằng một hook.
+12. Sổ hook phải cân bằng: mỗi chương hành động rõ với hook đang hoạt động (open/advance/resolve/defer), không "mở một đống rồi không thu hồi".
+13. Khi một sự kiện lõi tụ nhiều nhân vật chính vào cùng một cảnh, lấy sự kiện đó làm tâm và cho mỗi nhân vật hiện diện một đoạn phản ứng nội tâm riêng — mỗi người nhìn cùng việc, hiểu khác nhau.
+14. Cứ resolve 1 hook thì cố mở 2 hook mới có liên hệ nhân quả (trần vẫn ≤ 2/chương); hạ ngạch cứng là mở ≥ số đã resolve, validator phía dưới sẽ chặn nếu không đủ.
+15. Tỷ lệ nội dung người dùng đặt (ví dụ "quyền mưu/tình cảm nửa nửa", "tuyến sự nghiệp 70% + tuyến tình cảm 30%") phải thành cảnh có thể thấy được trong memo, không chỉ nhắc lại tỷ lệ; tuyến nào tạm không đẩy thì ghi rõ vì sao và khi nào bù lại.
+
+## Output format (bắt buộc)
+
+Xuất Markdown thuần, KHÔNG YAML frontmatter, KHÔNG JSON, KHÔNG code fence.
+
+Cấu trúc (tiêu đề mục phải dùng ĐÚNG chuỗi tiếng Anh dưới đây — parser phía dưới chỉ nhận các chuỗi này; nội dung bên dưới mỗi tiêu đề viết bằng tiếng Việt):
+
+# Chapter 12 memo
+
+## Chapter goal
+<mục tiêu cụ thể, ≤ 50 ký tự, viết tiếng Việt>
+
+## Thread refs
+- H03
+- S004
+
+## Scene and length budget
+- Scene 1: <hành động cụ thể> | khoảng 450 từ
+- Scene 2: <xung đột hoặc thay đổi quan hệ> | khoảng 800 từ
+- Scene 3: <thay đổi cuối chương> | khoảng 600 từ
+
+## Current task
+<một câu: hành động cụ thể nhân vật chính phải hoàn thành, không viết trừu tượng>
+
+## What the reader is waiting for right now
+<hai dòng:
+1) độc giả đang kỳ vọng điều gì (dựa trên các chương trước đã gieo)
+2) chương này làm gì với kỳ vọng đó — mở rộng khoảng trống / hồi đáp một phần / hồi đáp trọn vẹn / chưa hồi đáp nhưng hé gợi ý>
+
+## To pay off / to keep buried
+- Pay off: X → đến mức nào
+- Keep buried: Y → giữ kín đến chương N
+
+## What the slow / transitional beats carry
+<nếu chương không áp lực, ghi chức năng của từng đoạn chuyển tiếp. Format: [vị trí] → [chức năng]. Nếu là chương áp lực/xung đột, ghi "không áp dụng">
+
+## Three-question check on the key choice
+- Lựa chọn quan trọng nhất của nhân vật chính:
+  - Vì sao chọn vậy?
+  - Có khớp lợi ích hiện tại không?
+  - Có khớp tính cách nhân vật không?
+- Lựa chọn quan trọng nhất của đối thủ / phụ diễn:
+  - Vì sao chọn vậy?
+  - Có khớp lợi ích hiện tại không?
+  - Có khớp tính cách nhân vật không?
+
+## Required end-of-chapter change
+<1-3 mục, chọn từ: thay đổi thông tin / thay đổi quan hệ / thay đổi vật lý / thay đổi quyền lực>
+
+## Hook ledger for this chapter
+**Đây là sổ kế toán của chương này với các móc truyện đang hoạt động; writer hạ nguồn phải hành động theo đúng sổ. Format (dùng "-" dưới từng mục):**
+
+open:
+- [new] mô tả hook mới (≤ 30 ký tự) || lý do: vì sao mở bây giờ, không điểm phá trong chương này (trần ≤ 2; mỗi resolve 1 hook thì nên mở 2 hook mới; hạ ngạch cứng open ≥ resolve)
+
+advance:
+- H007 "biên nhận của Hổ Tử" → Lâm Thu lần đầu định xé, bị chặn lại (planted → pressured)
+- H012 "vết cháy khung lôi" → sư huynh lén xem để lại dấu (pressured → near_payoff)
+
+resolve:
+- H003 "bài bài tạp dịch" → Lâm Thu tự tay tháo xuống (clear)
+
+defer:
+- H009 "nguồn gốc Thủ Trác Quyết" → chương này không động, lý do: chưa tới thời điểm, để đến chương N
+
+**Luật cứng**:
+- Nếu hook trong pending_hooks đầu vào đã ở trạng thái "pressured" hoặc "near_payoff" và ≥ 5 chương chưa được đẩy, BẮT BUỘC đưa vào advance hoặc resolve; không được defer.
+- hook_id trong advance/resolve phải tồn tại thật trong pending_hooks đầu vào (không bịa ID).
+- Nếu chương thuần áp lực/đánh nhau không có chỗ xử lý hook, vẫn phải có ít nhất 1 mục advance hoặc defer.
+- Nếu "## Current task" tự nhiên tương ứng với việc thu hồi một hook, phải khai báo hook_id đó trong resolve; nếu hook đó chưa promoted thì ghi rõ "promoted=false", còn nếu promoted=true thì đây là nợ lõi, phải xử lý nghiêm túc.
+
+## Do not
+<2-4 cấm kỵ>
+
+## Output requirements
+
+- "## Chapter goal" không quá 50 ký tự
+- "## Thread refs" dùng danh sách Markdown liệt kê id chọn từ pending_hooks / subplot_board đầu vào; không có thì ghi "none"
+- "## Scene and length budget" chia 2-5 cảnh thật theo ngân sách độ dài; tổng ngân sách phải nằm trong khoảng cứng ở đầu vào; cấm dùng tóm tắt, độc thoại nội tâm lặp lại hoặc tuyến phụ mới để chữa số từ
+- Mọi heading cấp 2 phải xuất hiện và không được rỗng
+- Không dùng thuật ngữ phương pháp ("emotional gap", "cyclePhase", "tích áp"...) trong memo — nói thẳng bằng nhân vật, địa điểm, sự kiện của cuốn sách này
+- Không viết văn xuôi hoặc đoạn thoại hoàn chỉnh
+- Nếu đề cương tập mâu thuẫn với tóm tắt chương trước, tin tóm tắt chương trước vì đó là sự kiện đã xảy ra`;
+export const PLANNER_MEMO_USER_TEMPLATE_VI = `# Yêu cầu memo chương {{chapterNumber}}
+
+{{brief_block}}
+{{chapter_context_block}}
+
+## Màn hình cuối chương trước (trích)
+{{previous_chapter_ending_excerpt}}
+
+## Tóm tắt 3 chương gần nhất
+{{recent_summaries}}
+
+## Arc hiện tại đang đẩy gì
+{{current_arc_prose}}
+
+## Trạng thái hiện tại của nhân vật chính
+{{protagonist_matrix_row}}
+
+## Đối thủ / lực cản chính chương này
+{{opponent_rows}}
+
+## Đồng minh chính chương này
+{{collaborator_rows}}
+
+## Tuyến có thể bị chạm tới (foreshadow + tuyến phụ)
+{{relevant_threads}}
+
+## Hook cũ — PHẢI advance / resolve / defer rõ trong chương này
+{{recyclable_hooks}}
+
+## Ràng buộc ngoài tập cho chương này
+- Chương mở đầu vàng: {{isGoldenOpening}}
+- Ngân sách độ dài chương: mục tiêu {{lengthTarget}} {{lengthUnit}}; khuyến nghị {{lengthSoftMin}}-{{lengthSoftMax}}; cứng {{lengthHardMin}}-{{lengthHardMax}}
+- Quy tắc cứng (trích các mục chương này có thể chạm tới):
+{{book_rules_relevant}}
+
+Tạo memo cho chương {{chapterNumber}}. Chỉ xuất đúng định dạng Markdown thuần ở trên.`;
+
 export const PLANNER_MEMO_USER_TEMPLATE_EN = `# Chapter {{chapterNumber}} memo request
 
 {{brief_block}}
@@ -263,12 +402,16 @@ Produce the memo for chapter {{chapterNumber}}. Strictly emit the plain Markdown
  * Defaults to zh for backward compatibility — explicit "en" required for
  * the English variant.
  */
-export function getPlannerMemoSystemPrompt(language: "zh" | "en" = "zh"): string {
-  return language === "en" ? PLANNER_MEMO_SYSTEM_PROMPT_EN : PLANNER_MEMO_SYSTEM_PROMPT;
+export function getPlannerMemoSystemPrompt(language: "zh" | "en" | "vi" = "zh"): string {
+  if (language === "en") return PLANNER_MEMO_SYSTEM_PROMPT_EN;
+  if (language === "vi") return PLANNER_MEMO_SYSTEM_PROMPT_VI;
+  return PLANNER_MEMO_SYSTEM_PROMPT;
 }
 
-export function getPlannerMemoUserTemplate(language: "zh" | "en" = "zh"): string {
-  return language === "en" ? PLANNER_MEMO_USER_TEMPLATE_EN : PLANNER_MEMO_USER_TEMPLATE;
+export function getPlannerMemoUserTemplate(language: "zh" | "en" | "vi" = "zh"): string {
+  if (language === "en") return PLANNER_MEMO_USER_TEMPLATE_EN;
+  if (language === "vi") return PLANNER_MEMO_USER_TEMPLATE_VI;
+  return PLANNER_MEMO_USER_TEMPLATE;
 }
 
 export const PLANNER_MEMO_USER_TEMPLATE = `# 第 {{chapterNumber}} 章 memo 请求
@@ -330,14 +473,14 @@ export interface PlannerUserMessageInput {
   };
   readonly brief?: string;
   readonly chapterContext?: string;
-  readonly language?: "zh" | "en";
+  readonly language?: "zh" | "en" | "vi";
 }
 
 export function buildPlannerUserMessage(input: PlannerUserMessageInput): string {
   const language = input.language ?? "zh";
   const template = getPlannerMemoUserTemplate(language);
-  const yesText = language === "en" ? "yes" : "是";
-  const noText = language === "en" ? "no" : "否";
+  const yesText = language === "en" ? "yes" : language === "vi" ? "có" : "是";
+  const noText = language === "en" ? "no" : language === "vi" ? "không" : "否";
 
   const briefBlock = buildBriefBlock(input.brief ?? "", language);
   const chapterContextBlock = buildChapterContextBlock(input.chapterContext ?? "", language);
@@ -374,7 +517,7 @@ export function buildPlannerUserMessage(input: PlannerUserMessageInput): string 
  *
  * Returns "" when no brief exists (legacy books without brief.md).
  */
-function buildBriefBlock(brief: string, language: "zh" | "en"): string {
+function buildBriefBlock(brief: string, language: "zh" | "en" | "vi"): string {
   const trimmed = brief.trim();
   if (!trimmed) return "";
   if (language === "en") {
@@ -383,13 +526,19 @@ ${trimmed}
 
 The brief is the user's direct instruction. When planning this chapter, honor the brief's core setup (protagonist concept, world premise, opening mechanics, sample chapter hooks if any) before anything else. If the brief specifies content proportions, dual-line weighting, or a required relationship-line share, turn it into visible beats in this memo instead of merely naming the ratio. Do NOT defer the brief's core setup to later chapters; land it early.`;
   }
+  if (language === "vi") {
+    return `## Brief sáng tác của người dùng (ý định gốc — ưu tiên cao nhất)
+${trimmed}
+
+Brief là chỉ dẫn trực tiếp của người dùng. Khi lập kế hoạch chương này, phải ưu tiên thực hiện thiết lập lõi trong brief trước mọi fallback đề cương. Nếu brief chỉ định tỷ lệ nội dung hoặc trọng số tuyến quan hệ, hãy biến nó thành beat/cảnh nhìn thấy được thay vì chỉ nhắc lại tỷ lệ.`;
+  }
   return `## 用户创作 brief（原始意图——最高优先级）
 ${trimmed}
 
 brief 是用户的直接指令。本章规划时，必须优先兑现 brief 里写明的核心设定（主角设定、世界前提、开场机制、样本章回钩子等）。如果 brief 里指定了内容比例、双主线权重或某条关系线必须占比，本章 memo 要把它拆成可见场面，而不是只在总结里提一句。**不要把 brief 里的核心设定推迟到后面的章节**——该在前几章落地的必须落地。`;
 }
 
-function buildChapterContextBlock(chapterContext: string, language: "zh" | "en"): string {
+function buildChapterContextBlock(chapterContext: string, language: "zh" | "en" | "vi"): string {
   const trimmed = chapterContext.trim();
   if (!trimmed) return "";
   if (language === "en") {
@@ -397,6 +546,12 @@ function buildChapterContextBlock(chapterContext: string, language: "zh" | "en")
 ${trimmed}
 
 This is the user's direct instruction for the current chapter. The memo must obey it before the outline fallback. If the user specifies a chapter title, preserve that title exactly in the memo so the writer can use it as CHAPTER_TITLE. If it conflicts with the volume outline, reconcile by keeping continuity but following this chapter instruction.`;
+  }
+  if (language === "vi") {
+    return `## Chỉ dẫn người dùng cho chương này (ưu tiên cao nhất của chương)
+${trimmed}
+
+Đây là chỉ dẫn trực tiếp cho chương hiện tại. Memo phải tuân thủ trước khi dùng đề cương fallback. Nếu người dùng chỉ định tiêu đề chương, giữ nguyên tiêu đề đó trong memo để writer dùng làm CHAPTER_TITLE. Nếu mâu thuẫn với đề cương tập, giữ liên tục nhưng ưu tiên chỉ dẫn chương này.`;
   }
   return `## 本章用户指令（本章最高优先级）
 ${trimmed}
@@ -412,7 +567,7 @@ ${trimmed}
 
 export function buildGoldenOpeningGuidance(
   chapterNumber: number,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
   if (chapterNumber > 3) return "";
 
@@ -424,6 +579,13 @@ This is chapter ${chapterNumber} of the opening three — the chapters that deci
 The memo's goal field for this chapter must reflect the slot's verb — confront, demonstrate, or commit. The chapter-end change must be a small hook or emotional gap, never a flat resolution. Apply the opening-economy rule throughout: at most three scenes and at most three named characters this chapter (a side character may be only a name without expansion). Information layering is mandatory — basic facts (appearance, status, situation) ride on the protagonist's actions, world rules ride on plot triggers; do not stage a paragraph of exposition.`;
   }
 
+  if (language === "vi") {
+    return `## Hướng dẫn mở đầu vàng — Chương ${chapterNumber}
+
+Đây là chương ${chapterNumber} trong ba chương mở đầu quyết định độc giả có ở lại không. Chương 1 phải ném nhân vật chính thẳng vào mâu thuẫn lõi; chương 2 phải cho lợi thế/hệ thống/ký ức/tài nguyên của nhân vật chính lên sân khấu qua một sự kiện cụ thể; chương 3 phải khóa một mục tiêu ngắn hạn có thể đạt trong 3-10 chương tới.
+
+Mục tiêu trong memo phải phản ánh đúng động từ của slot: đối mặt, trình diễn hoặc cam kết. Cuối chương phải có thay đổi nhỏ hoặc khoảng trống cảm xúc, không kết phẳng. Giữ kinh tế mở đầu: tối đa ba cảnh và ba nhân vật được nêu tên; thông tin phải đi cùng hành động và trigger cốt truyện, không exposition nguyên đoạn.`;
+  }
   return `## 黄金三章规划指引 — 第 ${chapterNumber} 章
 
 这是开篇三章中的第 ${chapterNumber} 章——决定读者是否留下来的关键章节。黄金三章法则给每一章分了硬槽位：第 1 章必须把主角直接抛进核心冲突里（主角出场即面对主线矛盾——追杀、死局、被夺权、穿越即危机），不要拿背景、家族、天气、朝代铺垫开场。第 2 章必须让金手指落地一次——系统/能力/重生记忆/信息差，必须通过**一次具体事件**展现出来（不是"他觉醒了 XX"的旁白，而是"他用了 XX，发生了 YY"）。第 3 章必须给主角钉下一个 3-10 章内可达成的具体短期目标（攒第一桶金、干翻某小反派、救某人），给故事一条往前拉的引力线。

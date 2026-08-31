@@ -1,10 +1,12 @@
 import { useState } from "react";
 
-export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en") => void }) {
-  const [hovering, setHovering] = useState<"zh" | "en" | null>(null);
-  const [selected, setSelected] = useState<"zh" | "en" | null>(null);
+type StudioLanguage = "zh" | "en" | "vi";
 
-  const handleSelect = (lang: "zh" | "en") => {
+export function LanguageSelector({ onSelect }: { onSelect: (lang: StudioLanguage) => void }) {
+  const [hovering, setHovering] = useState<StudioLanguage | null>(null);
+  const [selected, setSelected] = useState<StudioLanguage | null>(null);
+
+  const handleSelect = (lang: StudioLanguage) => {
     setSelected(lang);
     // Brief pause for the selection animation before transitioning
     setTimeout(() => onSelect(lang), 400);
@@ -22,7 +24,7 @@ export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en") =
       </div>
 
       {/* Language cards — generous, distinct, immersive */}
-      <div className="flex gap-8 mb-16">
+      <div className="flex flex-wrap justify-center gap-8 mb-16">
         <button
           onClick={() => handleSelect("zh")}
           onMouseEnter={() => setHovering("zh")}
@@ -64,10 +66,31 @@ export function LanguageSelector({ onSelect }: { onSelect: (lang: "zh" | "en") =
             Royal Road · Kindle Unlimited · Scribble Hub
           </div>
         </button>
+
+        <button
+          onClick={() => handleSelect("vi")}
+          onMouseEnter={() => setHovering("vi")}
+          onMouseLeave={() => setHovering(null)}
+          className={`group w-80 border rounded-lg p-10 text-left transition-all duration-300 ${
+            selected === "vi"
+              ? "border-primary bg-primary/10 scale-[1.02]"
+              : hovering === "vi"
+                ? "border-primary/50 bg-card"
+                : "border-border bg-card/50"
+          }`}
+        >
+          <div className="font-serif text-3xl italic mb-4 text-foreground">Tiếng Việt</div>
+          <div className="text-base text-foreground/70 leading-relaxed mb-6">
+            Truyện dài · Truyện ngắn · Kịch bản · Fanfic
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Wattpad · Kindle · Truyện Việt
+          </div>
+        </button>
       </div>
 
       <div className="text-sm text-muted-foreground">
-        可在设置中更改 · Can be changed in Settings
+        可在设置中更改 · Can be changed in Settings · Có thể đổi trong Cài đặt
       </div>
     </div>
   );

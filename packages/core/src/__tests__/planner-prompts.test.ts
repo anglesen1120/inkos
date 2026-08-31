@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  PLANNER_MEMO_SYSTEM_PROMPT_VI,
+  PLANNER_MEMO_USER_TEMPLATE_VI,
+} from "../agents/planner-prompts.js";
+import {
   PLANNER_MEMO_SYSTEM_PROMPT,
   PLANNER_MEMO_USER_TEMPLATE,
   buildPlannerUserMessage,
@@ -190,5 +194,174 @@ describe("buildGoldenOpeningGuidance", () => {
 
     const ch4 = buildPlannerUserMessage({ ...base, chapterNumber: 4 });
     expect(ch4).not.toContain("黄金三章规划指引");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 5 — Vietnamese planner prompt contracts
+// ---------------------------------------------------------------------------
+
+describe("PLANNER_MEMO_SYSTEM_PROMPT_VI", () => {
+  it("keeps parser-critical headings stable in Vietnamese while adding craft guidance", () => {
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).toContain("## Chapter goal");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).toContain("## Current task");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).toContain("## Hook ledger for this chapter");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).toContain("## Do not");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).toContain("open/advance/resolve/defer");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).toContain("hook_id");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).toContain("promoted");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).toContain("tiếng Việt tự nhiên");
+  });
+
+  it("does not leak Chinese instruction prose into the Vietnamese prompt", () => {
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).not.toContain("本章目标");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).not.toContain("三连问");
+    expect(PLANNER_MEMO_SYSTEM_PROMPT_VI).not.toContain("不要 YAML frontmatter");
+  });
+});
+
+describe("PLANNER_MEMO_USER_TEMPLATE_VI", () => {
+  it("retains every placeholder with Vietnamese surroundings", () => {
+    const placeholders = [
+      "{{chapterNumber}}",
+      "{{previous_chapter_ending_excerpt}}",
+      "{{recent_summaries}}",
+      "{{current_arc_prose}}",
+      "{{protagonist_matrix_row}}",
+      "{{opponent_rows}}",
+      "{{collaborator_rows}}",
+      "{{relevant_threads}}",
+      "{{recyclable_hooks}}",
+      "{{isGoldenOpening}}",
+      "{{lengthTarget}}",
+      "{{lengthSoftMin}}",
+      "{{lengthSoftMax}}",
+      "{{lengthHardMin}}",
+      "{{lengthHardMax}}",
+      "{{lengthUnit}}",
+      "{{book_rules_relevant}}",
+    ];
+    for (const ph of placeholders) {
+      expect(PLANNER_MEMO_USER_TEMPLATE_VI).toContain(ph);
+    }
+    expect(PLANNER_MEMO_USER_TEMPLATE_VI).toContain("Tạo memo cho chương");
+  });
+});
+
+describe("buildPlannerUserMessage Vietnamese", () => {
+  it("fills placeholders with Vietnamese template markers and yes/no copy", () => {
+    const out = buildPlannerUserMessage({
+      chapterNumber: 12,
+      previousChapterEndingExcerpt: "Cuối màn chương trước",
+      recentSummaries: "| ch9 | ... |",
+      currentArcProse: "Tuyến chính đẩy Cổng Bảy",
+      protagonistMatrixRow: "| A Trạch | chính | ... |",
+      opponentRows: "| Lão Lý | đối thủ | ... |",
+      collaboratorRows: "| Tiểu Bạch | đồng minh | ... |",
+      relevantThreads: "- H03: lá thư chưa giải mã",
+      recyclableHooks: "（暂无陈旧 hook——账本干净）",
+      isGoldenOpening: true,
+      lengthBudget: { ...LENGTH_BUDGET, unit: "từ" },
+      bookRulesRelevant: "- Cấm hạ trí nhân vật chính",
+      language: "vi",
+    });
+
+    expect(out).toContain("# Yêu cầu memo chương 12");
+    expect(out).toContain("Cuối màn chương trước");
+    expect(out).toContain("Tuyến chính đẩy Cổng Bảy");
+    expect(out).toContain("Chương mở đầu vàng: có");
+    expect(out).toContain("mục tiêu 2200 từ");
+    expect(out).toContain("cứng 1600-2800");
+    expect(out).toContain("- Cấm hạ trí nhân vật chính");
+    expect(out).not.toContain("{{");
+    expect(out).not.toContain("是否黄金三章");
+  });
+  it("translates negative golden-opening flag to không", () => {
+    const out = buildPlannerUserMessage({
+      chapterNumber: 5,
+      previousChapterEndingExcerpt: "",
+      recentSummaries: "",
+      currentArcProse: "",
+      protagonistMatrixRow: "",
+      opponentRows: "",
+      collaboratorRows: "",
+      relevantThreads: "",
+      recyclableHooks: "",
+      isGoldenOpening: false,
+      lengthBudget: { ...LENGTH_BUDGET, unit: "từ" },
+      bookRulesRelevant: "",
+      language: "vi",
+    });
+    expect(out).toContain("Chương mở đầu vàng: không");
+  });
+
+  it("renders brief and per-chapter user instruction in Vietnamese without machine fallout", () => {
+    const out = buildPlannerUserMessage({
+      chapterNumber: 3,
+      previousChapterEndingExcerpt: "",
+      recentSummaries: "",
+      currentArcProse: "",
+      protagonistMatrixRow: "",
+      opponentRows: "",
+      collaboratorRows: "",
+      relevantThreads: "",
+      recyclableHooks: "",
+      isGoldenOpening: false,
+      lengthBudget: { ...LENGTH_BUDGET, unit: "từ" },
+      bookRulesRelevant: "",
+      brief: "Brief: 70% nghề + 30% tình, cốt lõi.",
+      chapterContext: "Chương này: tiêu đề “Trận mưa sổ cái”, đối chất ban đêm.",
+    });
+
+    expect(out).toContain("## Brief sáng tác của người dùng");
+    expect(out).toContain("Brief: 70% nghề + 30% tình, cốt lõi.");
+    expect(out).toContain("## Chỉ dẫn người dùng cho chương này");
+    expect(out).toContain("Trận mưa sổ cái");
+    expect(out).toContain("CHAPTER_TITLE");
+  });
+
+  it("appends Vietnamese golden-opening guidance for chapters <= 3", () => {
+    const base = {
+      previousChapterEndingExcerpt: "",
+      recentSummaries: "",
+      currentArcProse: "",
+      protagonistMatrixRow: "",
+      opponentRows: "",
+      collaboratorRows: "",
+      relevantThreads: "",
+      recyclableHooks: "",
+      isGoldenOpening: false,
+      lengthBudget: { ...LENGTH_BUDGET, unit: "từ" },
+      bookRulesRelevant: "",
+    };
+    const ch1 = buildPlannerUserMessage({ ...base, chapterNumber: 1 });
+    expect(ch1).toContain("## Hướng dẫn mở đầu vàng — Chương 1");
+    expect(ch1).not.toContain("黄金三章规划指引");
+    const ch4 = buildPlannerUserMessage({ ...base, chapterNumber: 4 });
+    expect(ch4).not.toContain("Hướng dẫn mở đầu vàng");
+  });
+});
+
+describe("buildGoldenOpeningGuidance Vietnamese", () => {
+  it("covers all three opening slots with Vietnamese slot verbs", () => {
+    const ch1 = buildGoldenOpeningGuidance(1, "vi");
+    expect(ch1).toContain("Hướng dẫn mở đầu vàng — Chương 1");
+    expect(ch1).toContain("mâu thuẫn lõi");
+    expect(ch1).toContain("đối mặt");
+
+    const ch2 = buildGoldenOpeningGuidance(2, "vi");
+    expect(ch2).toContain("Chương 2");
+    expect(ch2).toContain("lợi thế");
+    expect(ch2).toContain("sự kiện cụ thể");
+
+    const ch3 = buildGoldenOpeningGuidance(3, "vi");
+    expect(ch3).toContain("Chương 3");
+    expect(ch3).toContain("mục tiêu ngắn hạn");
+    expect(ch3).toContain("3-10 chương");
+  });
+
+  it("returns empty for chapters beyond the opening window", () => {
+    expect(buildGoldenOpeningGuidance(4, "vi")).toBe("");
+    expect(buildGoldenOpeningGuidance(99, "vi")).toBe("");
   });
 });

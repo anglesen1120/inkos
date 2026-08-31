@@ -41,5 +41,11 @@ describe("tui slash autocomplete", () => {
     expect(en[0]).toBe("/new describe your idea");
     expect(en).toHaveLength(zh.length);
     expect(en.map((c) => c.match(/^\/\S+/)?.[0])).toEqual(zh.map((c) => c.match(/^\/\S+/)?.[0]));
+
+    const vi = buildSlashCommands("vi");
+    expect(vi[0]).toBe("/new mô tả ý tưởng của bạn");
+    expect(vi[2]).toBe("/play [open|guided] mô tả mở đầu thế giới tương tác");
+    expect(vi).toHaveLength(zh.length);
+    expect(vi.map((c) => c.match(/^\/\S+/)?.[0])).toEqual(zh.map((c) => c.match(/^\/\S+/)?.[0]));
   });
 });

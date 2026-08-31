@@ -310,6 +310,150 @@ describe("ArchitectAgent — Phase 5 prose output", () => {
     expect(out.roles?.length).toBeGreaterThan(0);
   });
 
+  it("uses Vietnamese recovery prompts when a Vietnamese foundation is missing sections", async () => {
+    const agent = buildAgent();
+    const vietnameseBook = { ...baseBook(), language: "vi" as const };
+    const chat = vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValueOnce({
+        content: [
+          "=== SECTION: story_frame ===",
+          "# Khung truyện",
+          "=== SECTION: volume_map ===",
+          "# Bản đồ tập truyện",
+          "=== SECTION: pending_hooks ===",
+          "# Các móc truyện",
+        ].join("\n"),
+        usage: ZERO_USAGE,
+      })
+      .mockResolvedValueOnce({ content: SAMPLE_RESPONSE, usage: ZERO_USAGE });
+
+    await agent.generateFoundation(vietnameseBook);
+
+    const repairMessages = chat.mock.calls[1]?.[0] as Array<{ role: string; content: string }>;
+    expect(repairMessages[0]?.content).toContain("sửa định dạng đầu ra của architect InkOS");
+    expect(repairMessages[0]?.content).toContain("5 khối SECTION");
+    expect(repairMessages[1]?.content).toContain("Các section còn thiếu");
+    expect(repairMessages[0]?.content).not.toContain("你负责修复");
+    expect(repairMessages[1]?.content).not.toContain("缺失 section");
+  });
+
+  it("reports an incomplete Vietnamese foundation in Vietnamese after repair also omits sections", async () => {
+    const agent = buildAgent();
+    const incompleteFoundation = [
+      "=== SECTION: story_frame ===",
+      "# Khung truyện",
+      "=== SECTION: volume_map ===",
+      "# Bản đồ tập truyện",
+      "=== SECTION: pending_hooks ===",
+      "# Các móc truyện",
+    ].join("\n");
+    vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValue({ content: incompleteFoundation, usage: ZERO_USAGE });
+
+    await expect(agent.generateFoundation({ ...baseBook(), language: "vi" })).rejects.toThrow(
+      "Nền tảng truyện được tạo chưa đầy đủ",
+    );
+  });
+
+  it("writes Vietnamese prose and role labels into Phase 5 compatibility artifacts", async () => {
+    const agent = buildAgent();
+    await agent.writeFoundationFiles(bookDir, {
+      storyBible: "",
+      volumeOutline: "",
+      bookRules: "# Quy tắc truyện",
+      currentState: "",
+      pendingHooks: "| hook_id |",
+      storyFrame: "# Khung truyện",
+      volumeMap: "# Bản đồ tập truyện",
+      roles: [
+        { tier: "major", name: "Linh", content: "# Linh" },
+        { tier: "minor", name: "Ông Nam", content: "# Ông Nam" },
+      ],
+    }, false, "vi");
+
+    const storyDir = join(bookDir, "story");
+    await expect(readFile(join(storyDir, "story_bible.md"), "utf-8"))
+      .resolves.toContain("Tệp này chỉ được giữ lại cho các trình đọc bên ngoài");
+    const matrixShim = await readFile(join(storyDir, "character_matrix.md"), "utf-8");
+    expect(matrixShim).toContain("## Nhân vật chính");
+    expect(matrixShim).toContain("## Nhân vật phụ");
+    expect(matrixShim).toContain("roles/主要角色/Linh.md");
+    expect(matrixShim).toContain("roles/次要角色/Ông Nam.md");
+    expect(matrixShim).not.toContain("本文件仅为外部读取保留");
+    await expect(readFile(join(storyDir, "current_state.md"), "utf-8"))
+      .resolves.toContain("Được tạo khi khởi tạo truyện");
+    await expect(readFile(join(storyDir, "emotional_arcs.md"), "utf-8"))
+      .resolves.toContain("| Nhân vật | Chương | Trạng thái cảm xúc |");
+  });
+
+  it("writes Vietnamese legacy seeds and wraps Vietnamese review feedback", async () => {
+    const agent = buildAgent();
+    const vietnameseBook = { ...baseBook(), language: "vi" as const };
+    const chat = vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValue({
+        content: [
+          "=== SECTION: story_bible ===",
+          "# Nền tảng truyện",
+          "=== SECTION: volume_outline ===",
+          "# Dàn ý tập truyện",
+          "=== SECTION: book_rules ===",
+          "# Quy tắc truyện",
+          "=== SECTION: pending_hooks ===",
+          "| hook_id |",
+        ].join("\n"),
+        usage: ZERO_USAGE,
+      });
+
+    const output = await agent.generateFoundation(vietnameseBook, undefined, "Làm rõ động cơ của nhân vật chính.");
+    await agent.writeFoundationFiles(bookDir, output, false, "vi");
+
+    const foundationPrompt = chat.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    expect(foundationPrompt[0]?.content).toContain("## Phản hồi đánh giá trước đó");
+    expect(foundationPrompt[0]?.content).toContain("Làm rõ động cơ của nhân vật chính.");
+    expect(foundationPrompt[0]?.content).not.toContain("上一轮审核反馈");
+
+    const storyDir = join(bookDir, "story");
+    await expect(readFile(join(storyDir, "character_matrix.md"), "utf-8"))
+      .resolves.toContain("# Ma trận nhân vật");
+    await expect(readFile(join(storyDir, "current_state.md"), "utf-8"))
+      .resolves.toContain("Được tạo khi khởi tạo truyện");
+    await expect(readFile(join(storyDir, "emotional_arcs.md"), "utf-8"))
+      .resolves.toContain("| Nhân vật | Chương | Trạng thái cảm xúc |");
+  });
+
+  it("uses Vietnamese revise framing without Chinese instructions", async () => {
+    const agent = buildAgent();
+    const chat = vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValue({ content: SAMPLE_RESPONSE, usage: ZERO_USAGE });
+
+    await agent.generateFoundation(
+      { ...baseBook(), language: "vi" },
+      undefined,
+      undefined,
+      {
+        reviseFrom: {
+          storyBible: "# Khung truyện cũ",
+          volumeOutline: "# Bản đồ tập cũ",
+          bookRules: "# Quy tắc cũ",
+          characterMatrix: "# Nhân vật cũ",
+          userFeedback: "Giữ nguyên bí mật của Linh và viết lại hồi kết.",
+        },
+      },
+    );
+
+    const messages = chat.mock.calls[0]?.[0] as Array<{ role: string; content: string }>;
+    const prompt = messages[0]?.content ?? "";
+    expect(prompt).toContain("nguồn nội dung có thẩm quyền");
+    expect(prompt).toContain("Giữ nguyên bí mật của Linh và viết lại hồi kết.");
+    expect(prompt).toContain("story_frame / volume_map / roles / book_rules / pending_hooks");
+    expect(prompt).toContain("story/story_bible.md");
+    expect(prompt).toContain("story/outline/story_frame.md");
+    expect(prompt).toContain("story/roles/主要角色/<name>.md");
+    expect(prompt).not.toContain("你的任务");
+    expect(prompt).not.toContain("用户额外要求");
+    expect(prompt).not.toContain("这是权威内容");
+  });
+
   it("requires at least one of story_frame or legacy story_bible", async () => {
     const agent = buildAgent();
     vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
@@ -478,5 +622,20 @@ describe("writeFoundationFiles — rhythm file is skipped when rhythmPrinciples 
       "utf-8",
     );
     expect(rhythm).toContain("高潮间距");
+  });
+
+  it("writes outline/nguyen_tac_nhip_dieu.md for a Vietnamese standalone rhythm block", async () => {
+    const agent = buildAgent();
+    vi.spyOn(agent as unknown as { chat: (...args: unknown[]) => Promise<unknown> }, "chat")
+      .mockResolvedValue({ content: SAMPLE_RESPONSE, usage: ZERO_USAGE });
+
+    const out = await agent.generateFoundation(baseBook());
+    await agent.writeFoundationFiles(bookDir, out, false, "vi");
+
+    await expect(readFile(
+      join(bookDir, "story/outline/nguyen_tac_nhip_dieu.md"),
+      "utf-8",
+    )).resolves.toContain("高潮间距");
+    await expect(readFile(join(bookDir, "story/outline/节奏原则.md"), "utf-8")).rejects.toThrow();
   });
 });

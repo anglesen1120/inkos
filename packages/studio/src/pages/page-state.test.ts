@@ -32,6 +32,9 @@ describe("defaultChapterWordsForLanguage", () => {
     expect(defaultChapterWordsForLanguage("zh")).toBe("3000");
     expect(defaultChapterWordsForLanguage("en")).toBe("2000");
   });
+  it("uses Vietnamese word-count defaults for Vietnamese projects", () => {
+    expect(defaultChapterWordsForLanguage("vi")).toBe("2000");
+  });
 });
 
 describe("platformOptionsForLanguage", () => {
@@ -39,6 +42,11 @@ describe("platformOptionsForLanguage", () => {
     const values = platformOptionsForLanguage("en").map((option) => option.value);
     expect(new Set(values).size).toBe(values.length);
     expect(values).toEqual(["royal-road", "kindle-unlimited", "scribble-hub", "other"]);
+  });
+
+  it("uses Vietnamese market-neutral platform choices", () => {
+    const values = platformOptionsForLanguage("vi").map((option) => option.value);
+    expect(values).toEqual(["wattpad", "kindle", "other"]);
   });
 });
 

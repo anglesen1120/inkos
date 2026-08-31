@@ -30,6 +30,8 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "audit:semantic-patterns": "node scripts/audit-semantic-patterns.mjs",
+    "check:vi-localization": "node scripts/check-vietnamese-localization.mjs",
+    "test:vi-localization": "node --test scripts/__tests__/check-vietnamese-localization.test.mjs",
     "verify:publish-manifests": "node scripts/verify-no-workspace-protocol.mjs packages/core packages/cli packages/studio",
     "benchmark:studio-e2e": "node scripts/studio-e2e-benchmark.mjs",
     "release": "pnpm build && pnpm test"

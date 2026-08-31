@@ -41,13 +41,13 @@ function run(args: string[], options?: { env?: Record<string, string> }): string
   });
 }
 
-function runStderr(args: string[], options?: { env?: Record<string, string> }): { stdout: string; stderr: string; exitCode: number } {
+function runStderr(args: string[], options?: { env?: Record<string, string>; timeoutMs?: number }): { stdout: string; stderr: string; exitCode: number } {
   try {
     const stdout = execFileSync("node", [cliEntry, ...args], {
       cwd: projectDir,
       encoding: "utf-8",
       env: buildTestEnv(options?.env),
-      timeout: CLI_PROCESS_TIMEOUT_MS,
+      timeout: options?.timeoutMs ?? CLI_PROCESS_TIMEOUT_MS,
     });
     return { stdout, stderr: "", exitCode: 0 };
   } catch (e: unknown) {
@@ -167,6 +167,21 @@ describe("CLI integration", () => {
         await rm(englishDir, { recursive: true, force: true });
       }
     });
+    it("uses INKOS_LOCALE=vi when init has no --lang", async () => {
+      const vietnameseDir = await mkdtemp(join(tmpdir(), "inkos-cli-vi-init-"));
+
+      try {
+        const output = run(["init", vietnameseDir], { env: { INKOS_LOCALE: "vi" } });
+        expect(output).toContain("Đã khởi tạo project");
+        expect(output).toContain("Tiểu thuyết của tôi");
+
+        const config = JSON.parse(await readFile(join(vietnameseDir, "inkos.json"), "utf-8"));
+        expect(config.language).toBe("vi");
+      } finally {
+        await rm(vietnameseDir, { recursive: true, force: true });
+      }
+    });
+
   });
 
   describe("inkos config set", () => {
@@ -333,6 +348,71 @@ describe("CLI integration", () => {
       expect(stderr).toContain("Failed to create book");
       await expect(stat(staleDir)).rejects.toThrow();
     }, CLI_PROCESS_TIMEOUT_MS);
+  });
+  describe("inkos fanfic init", () => {
+    it("persists the locale-resolved Vietnamese book language before a pipeline failure", async () => {
+      const sourcePath = join(projectDir, "fanfic-source.txt");
+      const bookDir = join(projectDir, "books", "vietnam-fanfic");
+      const initialized = await stat(join(projectDir, "inkos.json")).then(() => true).catch(() => false);
+      if (!initialized) run(["init"]);
+      await writeFile(sourcePath, "N".repeat(120), "utf-8");
+
+      try {
+        const { exitCode } = runStderr([
+          "fanfic",
+          "init",
+          "--title",
+          "Vietnam fanfic",
+          "--from",
+          sourcePath,
+        ], {
+          env: { ...failingLlmEnv, INKOS_LOCALE: "vi" },
+          timeoutMs: DOUBLE_CLI_INVOCATION_TEST_TIMEOUT_MS,
+        });
+
+        expect(exitCode).not.toBe(0);
+        const book = JSON.parse(await readFile(join(bookDir, "book.json"), "utf-8"));
+        expect(book.language).toBe("vi");
+      } finally {
+        await rm(bookDir, { recursive: true, force: true });
+        await rm(sourcePath, { force: true });
+      }
+    }, DOUBLE_CLI_INVOCATION_TEST_TIMEOUT_MS);
+
+    it("persists the initialized project language when no locale override is configured", async () => {
+      const configPath = join(projectDir, "inkos.json");
+      const sourcePath = join(projectDir, "fanfic-project-language-source.txt");
+      const bookDir = join(projectDir, "books", "english-fanfic");
+      const initialized = await stat(configPath).then(() => true).catch(() => false);
+      if (!initialized) run(["init"]);
+      const originalConfig = await readFile(configPath, "utf-8");
+      const config = JSON.parse(originalConfig);
+      config.language = "en";
+      await writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
+      await writeFile(sourcePath, "N".repeat(120), "utf-8");
+
+      try {
+        const { exitCode } = runStderr([
+          "fanfic",
+          "init",
+          "--title",
+          "English fanfic",
+          "--from",
+          sourcePath,
+        ], {
+          env: { ...failingLlmEnv, INKOS_LOCALE: "", LANG: "C" },
+          timeoutMs: DOUBLE_CLI_INVOCATION_TEST_TIMEOUT_MS,
+        });
+
+        expect(exitCode).not.toBe(0);
+        const book = JSON.parse(await readFile(join(bookDir, "book.json"), "utf-8"));
+        expect(book.language).toBe("en");
+      } finally {
+        await writeFile(configPath, originalConfig, "utf-8");
+        await rm(bookDir, { recursive: true, force: true });
+        await rm(sourcePath, { force: true });
+      }
+    }, DOUBLE_CLI_INVOCATION_TEST_TIMEOUT_MS);
   });
 
   describe("inkos status", () => {

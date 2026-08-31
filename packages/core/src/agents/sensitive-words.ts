@@ -18,7 +18,7 @@ export interface SensitiveWordResult {
   readonly found: ReadonlyArray<SensitiveWordMatch>;
 }
 
-type SensitiveWordLanguage = "zh" | "en";
+type SensitiveWordLanguage = "zh" | "en" | "vi";
 
 // Political terms — severity "block"
 const POLITICAL_WORDS: ReadonlyArray<string> = [

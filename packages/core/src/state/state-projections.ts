@@ -14,7 +14,7 @@ import {
 
 export function renderHooksProjection(
   state: HooksState,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
   options?: { readonly currentChapter?: number },
 ): string {
   const title = language === "en" ? "# Pending Hooks" : "# 伏笔池";
@@ -71,12 +71,12 @@ export function renderHooksProjection(
   return [title, "", ...headers, ...rows, ""].join("\n");
 }
 
-function renderDependsOnCell(ids: ReadonlyArray<string>, language: "zh" | "en"): string {
+function renderDependsOnCell(ids: ReadonlyArray<string>, language: "zh" | "en" | "vi"): string {
   if (ids.length === 0) return language === "en" ? "none" : "无";
   return `[${ids.join(", ")}]`;
 }
 
-function renderCoreHookCell(isCore: boolean, language: "zh" | "en"): string {
+function renderCoreHookCell(isCore: boolean, language: "zh" | "en" | "vi"): string {
   if (language === "en") return isCore ? "true" : "false";
   return isCore ? "是" : "否";
 }
@@ -86,7 +86,7 @@ function renderHalfLifeCell(value: number | undefined): string {
   return String(Math.trunc(value));
 }
 
-function renderPromotedCell(value: boolean | undefined, language: "zh" | "en"): string {
+function renderPromotedCell(value: boolean | undefined, language: "zh" | "en" | "vi"): string {
   if (value === undefined) return "";
   if (language === "en") return value ? "true" : "false";
   return value ? "是" : "否";
@@ -94,7 +94,7 @@ function renderPromotedCell(value: boolean | undefined, language: "zh" | "en"): 
 
 export function renderChapterSummariesProjection(
   state: ChapterSummariesState,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
   const title = language === "en" ? "# Chapter Summaries" : "# 章节摘要";
   const headers = language === "en"
@@ -127,7 +127,7 @@ export function renderChapterSummariesProjection(
 
 export function renderCurrentStateProjection(
   state: CurrentStateState,
-  language: "zh" | "en" = "zh",
+  language: "zh" | "en" | "vi" = "zh",
 ): string {
   const layout = language === "en"
     ? {

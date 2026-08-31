@@ -25,6 +25,7 @@ import {
   parseShortFictionBatchDraft,
   parseShortFictionOutline,
   renderShortFictionDraftMarkdown,
+  formatShortFictionChapterHeading,
 } from "../agents/short-fiction.js";
 import { runShortFictionProduction } from "../pipeline/short-fiction-runner.js";
 
@@ -92,6 +93,7 @@ describe("short-fiction English prompt branch", () => {
     }
   });
 
+
   it("keeps machine-readable block tags and word calibration in the en writer prompt", () => {
     const prompt = buildShortFictionWriterUserPrompt(DRAFT_INPUT, "en");
     expect(prompt).toContain("=== SHORT_FICTION_TITLE ===");
@@ -108,6 +110,204 @@ describe("short-fiction English prompt branch", () => {
     const zhWriterUser = buildShortFictionWriterUserPrompt({ ...DRAFT_INPUT, charsPerChapter: 1000 });
     expect(zhWriterUser).toContain("高潮即场景");
     expect(zhWriterUser).toContain("每章约 1000 字");
+  });
+});
+describe("short-fiction Vietnamese prompt branch", () => {
+  it("produces Vietnamese prompts with Vietnamese word-count instructions", () => {
+    const input = { direction: "Một truyện ngắn trinh thám ở Hà Nội.", outlineMarkdown: "Một kế hoạch truyện đầy đủ.", chapterCount: 12, charsPerChapter: 650 };
+    const outlineSystem = buildShortFictionOutlineSystemPrompt("vi");
+    const outlineUser = buildShortFictionOutlineUserPrompt(input, "vi");
+    const writerSystem = buildShortFictionWriterSystemPrompt("vi");
+    const writerUser = buildShortFictionWriterUserPrompt(input, "vi");
+    expect(outlineSystem).toContain("biên tập viên truyện ngắn tiếng Việt");
+    expect(outlineUser).toContain("650 từ mỗi chương");
+    expect(writerSystem).toContain("BatchWriter truyện ngắn tiếng Việt");
+    expect(writerUser).toContain("Viết toàn bộ truyện 12 chương");
+    expect(writerUser).toContain("650 từ mỗi chương");
+    expect(writerUser).toContain("=== CHAPTER 1 TITLE ===");
+  });
+
+  it("produces fully Vietnamese prompts with no Chinese instruction text", () => {
+    const viInput = { direction: "Một truyện ngắn ngược dòng thời gian ở Sài Gòn.", outlineMarkdown: "Một kế hoạch truyện đầy đủ.", chapterCount: 12, charsPerChapter: 650 };
+    const viPrompts: Record<string, string> = {
+      outlineSystem: buildShortFictionOutlineSystemPrompt("vi"),
+      outlineUser: buildShortFictionOutlineUserPrompt(viInput, "vi"),
+      outlineReviewSystem: buildShortFictionOutlineReviewSystemPrompt("vi"),
+      outlineReviewUser: buildShortFictionOutlineReviewUserPrompt({
+        direction: viInput.direction,
+        outline: { rawContent: "phần thân kế hoạch" },
+      }, "vi"),
+      outlineRevisionFollowup: buildShortFictionOutlineRevisionFollowup({
+        direction: viInput.direction,
+        outline: { rawContent: "phần thân kế hoạch" },
+        review: "nửa sau chùng",
+        chapterCount: 12,
+        charsPerChapter: 650,
+      }, "vi"),
+      writerSystem: buildShortFictionWriterSystemPrompt("vi"),
+      writerUser: buildShortFictionWriterUserPrompt(viInput, "vi"),
+      continuationUser: buildShortFictionDraftContinuationUserPrompt({
+        ...viInput,
+        outlineMarkdown: "## Kế hoạch",
+        existingDraftMarkdown: "# Bản thảo hiện có",
+        missingChapters: [3, 4],
+      }, "vi"),
+      draftReviewSystem: buildShortFictionDraftReviewSystemPrompt("vi"),
+      draftReviewUser: buildShortFictionDraftReviewUserPrompt({
+        ...viInput,
+        outlineMarkdown: "## Kế hoạch",
+        draftMarkdown: "# Thân bản thảo",
+      }, "vi"),
+      draftRevisionFollowup: buildShortFictionDraftRevisionFollowup({
+        ...viInput,
+        outlineMarkdown: "## Kế hoạch",
+        review: "sửa mạch thời gian ở chương 4",
+      }, "vi"),
+      packageSystem: buildShortFictionPackageSystemPrompt("vi"),
+      packageUser: buildShortFictionPackageUserPrompt({
+        direction: viInput.direction,
+        outlineMarkdown: "kế hoạch",
+        draftMarkdown: "bản thảo",
+        draftTitle: "Tầng bí mật",
+      }, "vi"),
+    };
+
+    for (const [name, prompt] of Object.entries(viPrompts)) {
+      expect(prompt.trim().length, `${name} is empty`).toBeGreaterThan(0);
+      expect(CJK.test(prompt), `${name} contains Chinese: ${prompt.match(CJK)?.[0]}`).toBe(false);
+    }
+  });
+
+  it("keeps machine-readable block tags in every vi prompt builder", () => {
+    const input = { direction: "Một truyện ngắn trinh thám ở Hà Nội.", outlineMarkdown: "Một kế hoạch truyện đầy đủ.", chapterCount: 12, charsPerChapter: 650 };
+    expect(buildShortFictionWriterUserPrompt(input, "vi")).toContain("=== SHORT_FICTION_TITLE ===");
+    expect(buildShortFictionWriterUserPrompt(input, "vi")).toContain("=== SHORT_FICTION_OPENING_HOOK ===");
+    expect(buildShortFictionWriterUserPrompt(input, "vi")).toContain("=== CHAPTER 1 TITLE ===");
+    expect(buildShortFictionWriterUserPrompt(input, "vi")).toContain("=== CHAPTER 12 CONTENT ===");
+    expect(buildShortFictionOutlineUserPrompt(input, "vi")).toContain("=== SHORT_FICTION_PLAN_TITLE ===");
+    expect(buildShortFictionOutlineUserPrompt(input, "vi")).toContain("=== SHORT_FICTION_PLAN ===");
+    const revision = buildShortFictionOutlineRevisionFollowup({
+      direction: input.direction,
+      outline: { rawContent: "thân kế hoạch" },
+      review: "nửa sau chùng",
+      chapterCount: 12,
+      charsPerChapter: 650,
+    }, "vi");
+    expect(revision).toContain("=== SHORT_FICTION_PLAN_TITLE ===");
+    const followup = buildShortFictionDraftRevisionFollowup({
+      ...input,
+      outlineMarkdown: "## Kế hoạch",
+      review: "bổ sung cảnh thật",
+    }, "vi");
+    expect(followup).toContain("=== SHORT_FICTION_TITLE ===");
+    expect(followup).toContain("=== SHORT_FICTION_OPENING_HOOK ===");
+    expect(buildShortFictionPackageUserPrompt({
+      direction: input.direction,
+      outlineMarkdown: "kế hoạch",
+      draftMarkdown: "bản thảo",
+      draftTitle: "Tầng bí mật",
+    }, "vi")).toContain("=== SHORT_FICTION_PACKAGE_TITLE ===");
+    expect(buildShortFictionPackageUserPrompt({
+      direction: input.direction,
+      outlineMarkdown: "kế hoạch",
+      draftMarkdown: "bản thảo",
+      draftTitle: "Tầng bí mật",
+    }, "vi")).toContain("=== SHORT_FICTION_INTRO ===");
+    expect(buildShortFictionDraftContinuationUserPrompt({
+      ...input,
+      outlineMarkdown: "## Kế hoạch",
+      existingDraftMarkdown: "# Bản thảo",
+      missingChapters: [4],
+    }, "vi")).toContain("=== CHAPTER 4 TITLE ===");
+    expect(buildShortFictionDraftContinuationUserPrompt({
+      ...input,
+      outlineMarkdown: "## Kế hoạch",
+      existingDraftMarkdown: "# Bản thảo",
+      missingChapters: [4],
+    }, "vi")).toContain("=== CHAPTER 4 CONTENT ===");
+  });
+});
+
+const VI_ONE_TAGGED_DRAFT = `
+=== SHORT_FICTION_TITLE ===
+Chuyến thang máy lạ
+=== SHORT_FICTION_OPENING_HOOK ===
+Thang máy dừng ở một tầng không có trong bản vẽ.
+=== CHAPTER 1 TITLE ===
+Chương 1: Nút bấm thứ mười ba
+=== CHAPTER 1 CONTENT ===
+Thang máy mở ra một hành lang không có trong bản vẽ nào.
+`;
+
+describe("short-fiction Vietnamese parsing and rendering", () => {
+  it("counts vi chapter length in words (vi_words), not characters", () => {
+    const draft = parseShortFictionBatchDraft(VI_ONE_TAGGED_DRAFT, { expectedChapters: 1, language: "vi" });
+    // "Thang máy mở ra một hành lang không có trong bản vẽ nào." = 13 words
+    expect(draft.chapters[0]?.charCount).toBe(13);
+  });
+
+  it("strips the Chương N prefix from vi titles and uses vi fallbacks", () => {
+    const draft = parseShortFictionBatchDraft(VI_ONE_TAGGED_DRAFT, { expectedChapters: 2, language: "vi" });
+    expect(draft.chapters[0]?.title).toBe("Nút bấm thứ mười ba");
+    expect(draft.chapters[1]?.title).toBe("Chương 2"); // missing chapter falls back in Vietnamese
+    expect(parseShortFictionOutline("không có thẻ nào", "vi").storyTitle).toBe("Truyện ngắn chưa đặt tên");
+  });
+
+  it("formats and renders vi chapter headings without any Chinese", () => {
+    const draft = parseShortFictionBatchDraft(VI_ONE_TAGGED_DRAFT, { expectedChapters: 2, language: "vi" });
+    expect(formatShortFictionChapterHeading(1, "Nút bấm thứ mười ba", "vi")).toBe("Chương 1: Nút bấm thứ mười ba");
+    expect(formatShortFictionChapterHeading(2, "", "vi")).toBe("Chương 2");
+    const markdown = renderShortFictionDraftMarkdown(draft, "vi");
+    expect(markdown).toContain("# Chuyến thang máy lạ");
+    expect(markdown).toContain("## Móc mở đầu");
+    expect(markdown).toContain("## Chương 1: Nút bấm thứ mười ba");
+    expect(markdown).toContain("## Chương 2");
+    expect(CJK.test(markdown)).toBe(false);
+  });
+
+  it("parses vi markdown fallback chapter headings with the Chương prefix", () => {
+    const raw = [
+      "# Chuyến thang máy lạ",
+      "## Chương 1: Nút bấm thứ mười ba",
+      "Thang máy mở ra một hành lang không có trong bản vẽ.",
+      "## Chương 2: Tiếng chuông",
+      "Cô bấm nút năm lần trước khi bảng điện tắt ngấm.",
+    ].join("\n");
+    const draft = parseShortFictionBatchDraft(raw, { expectedChapters: 2, language: "vi" });
+    expect(draft.chapters[0]?.title).toBe("Nút bấm thứ mười ba");
+    expect(draft.chapters[1]?.title).toBe("Tiếng chuông");
+    expect(draft.chapters[0]?.content).toBe("Thang máy mở ra một hành lang không có trong bản vẽ.");
+    expect(draft.chapters[1]?.content).toBe("Cô bấm nút năm lần trước khi bảng điện tắt ngấm.");
+    expect(CJK.test(draft.chapters[0]?.title ?? "")).toBe(false);
+  });
+
+  it("uses numbered vi chapter headings as boundaries despite other level-2 headings", () => {
+    const raw = [
+      "# Chuyến thang máy lạ",
+      "## Móc mở đầu",
+      "Thang máy dừng ở một tầng không có trong bản vẽ.",
+      "## Chương 1: Nút bấm thứ mười ba",
+      "Thang máy mở ra một hành lang không có trong bản vẽ.",
+      "## Dấu vết trong hành lang",
+      "Một vệt nước dẫn tới cánh cửa khóa kín.",
+      "## Chương 2: Tiếng chuông",
+      "Cô bấm nút năm lần trước khi bảng điện tắt ngấm.",
+    ].join("\n");
+
+    const draft = parseShortFictionBatchDraft(raw, { expectedChapters: 2, language: "vi" });
+
+    expect(draft.chapters[0]).toMatchObject({
+      title: "Nút bấm thứ mười ba",
+      content: [
+        "Thang máy mở ra một hành lang không có trong bản vẽ.",
+        "## Dấu vết trong hành lang",
+        "Một vệt nước dẫn tới cánh cửa khóa kín.",
+      ].join("\n"),
+    });
+    expect(draft.chapters[1]).toMatchObject({
+      title: "Tiếng chuông",
+      content: "Cô bấm nút năm lần trước khi bảng điện tắt ngấm.",
+    });
   });
 });
 
@@ -163,6 +363,25 @@ describe("short-fiction English parsing and rendering", () => {
     expect(markdown).toContain("## Chapter 1: The Thirteenth Button");
     expect(markdown).toContain("## Chapter 2: The Night Shift");
     expect(CJK.test(markdown)).toBe(false);
+  });
+
+  it("parses unnumbered markdown chapter headings by position", () => {
+    const draft = parseShortFictionBatchDraft([
+      "# The Extra Floor",
+      "## The Thirteenth Button",
+      "The elevator doors opened onto a hallway.",
+      "## The Night Shift",
+      "The panel finally went dark.",
+    ].join("\n"), { expectedChapters: 2, language: "en" });
+
+    expect(draft.chapters[0]).toMatchObject({
+      title: "The Thirteenth Button",
+      content: "The elevator doors opened onto a hallway.",
+    });
+    expect(draft.chapters[1]).toMatchObject({
+      title: "The Night Shift",
+      content: "The panel finally went dark.",
+    });
   });
 });
 
